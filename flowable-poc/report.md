@@ -9,7 +9,7 @@
 | **Platform** | macOS 26.5.2 (arm64), Maven 3.9.16 |
 | **Build** | `mvn -B -Pdistro -pl modules/flowable-app-rest -am install -DskipTests` → BUILD SUCCESS, 95 modules, 03:21 |
 | **Findings** | 3 — CWE-94 (CVSS 8.8), CWE-502 (CVSS 8.3), CWE-639 (CVSS 8.3) |
-| **Disclosure** | Not yet reported to any vendor or CNA |
+| **Disclosure** | **Not yet reported** to Flowable or any CNA. This report is public, so downstream users should treat the findings as live until the project publishes a fix. |
 
 Every claim below was produced by running the proof scripts in `poc/` against the build described
 above. Raw captured output is in `evidence/`.

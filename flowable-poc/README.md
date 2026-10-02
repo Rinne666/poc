@@ -3,7 +3,16 @@
 **Target** `modules/flowable-app-rest` (`flowable-rest.war`)
 **Version** 8.1.0-SNAPSHOT
 **Commit tested** `74fdb349c134e96e1f10592020ccca6e2e4b85f0` (clean worktree)
-**Disclosure state** not yet reported to the vendor or any CNA — see `../README.md`
+**Disclosure state** **not yet reported** to Flowable or any CNA. Flowable publishes no
+`SECURITY.md` and has not enabled GitHub private vulnerability reporting, so there is no private
+channel to use — see `../README.md`. The `cve/*.cve.json` files carry `CVE-PENDING-*` identifiers
+and `state: RESERVED`; no CVE number has been allocated.
+
+> **If you run Flowable's REST application, treat these as live.** The maintainers have not been
+> notified, so there is no fix to wait for and no advisory to check. The most direct interim
+> mitigation is to grant deployment and script execution to nobody, and to set
+> `rest.variables.allow.serializable=false` explicitly — the code default is permissive, so
+> removing the shipped property does not close it.
 **CNA** not yet assigned. VulDB is the likely route; Flowable has not enabled GitHub private
 vulnerability reporting and publishes no `SECURITY.md`, so there is no private channel to use.
 

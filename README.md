@@ -10,18 +10,29 @@ the same place.
 
 ## Disclosure status — read this first
 
-**This repository is private. Nothing in it has been disclosed to any vendor or CNA yet.**
+**These findings have not been reported to any vendor or CNA.** Every project directory states its
+own status; check it before relying on anything here.
 
-Material is not published until this sequence completes for the relevant finding:
+This repository is public. That was a deliberate choice by the maintainer of this repository, made
+to support a CNA submission. It has a consequence worth stating plainly rather than burying: for
+the Flowable findings, downstream users of that product have no vendor warning period yet. If you
+run Flowable's REST application, treat the findings as live until the project publishes a fix.
+
+The sequence that would normally precede publication:
 
 1. Submit to the vendor's security contact, or to a CNA, using the `cve/*.cve.json` records here.
 2. Observe the confidentiality window. VulDB allows 90 days; other CNAs vary.
 3. Obtain the CVE ID and replace the `CVE-PENDING-*` identifiers.
-4. Republish this repository publicly, or publish a per-project public mirror.
+4. Update the project directory with the new identifiers and the vendor's response.
 
-Publishing a working remote-code-execution proof of concept before step 2 is complete removes the
-maintainer's ability to ship a fix before downstream users are exposed. It also invalidates the
-reporter's own claim to have followed coordinated disclosure.
+Steps 1–3 have not been completed. The records are `state: RESERVED` and the identifiers are
+`CVE-PENDING-*` precisely because no number has been allocated yet — do not read those files as
+assigned CVE records.
+
+**A note on why this is still publishable.** VulDB's requirement is a *publicly verifiable* proof of
+concept, which can be satisfied by an accessible test instance or by screenshots of a local
+reproduction, and does not by itself require a public code repository. The code is public here as a
+choice. The inertness rule below is what keeps it publishable at all.
 
 ---
 

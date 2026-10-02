@@ -139,8 +139,11 @@ RECORDS = {
         refs=[f"{REPO}/README.md#v1--deployment-reaching-an-unsandboxed-script-engine",
               f"{REPO}/report.md", f"{REPO}/poc/v1_deployment_rce.py"],
         notes={
-            "disclosure": "Not yet reported. This record is RESERVED and must not be published "
-                          "before a CNA or vendor has had its disclosure window.",
+            "disclosure": "Not yet reported to the vendor or any CNA. The identifier is "
+                          "CVE-PENDING and state is RESERVED because no number has been "
+                          "allocated; this is not an assigned CVE record. This record is "
+                          "published in a public repository ahead of vendor notification, so "
+                          "downstream users should treat the finding as live.",
             "exploit_tier": ("Proof-of-Concept, per VulDB's definition for a simple exploit that "
                              "illustrates basic functionality. The published PoC writes one marker "
                              "file and performs no other action."),
@@ -203,7 +206,11 @@ RECORDS = {
         refs=[f"{REPO}/README.md#v2--unfiltered-deserialization-of-caller-supplied-bytes",
               f"{REPO}/report.md", f"{REPO}/poc/v2_serializable_deser.py"],
         notes={
-            "disclosure": "Not yet reported. This record is RESERVED.",
+            "disclosure": "Not yet reported to the vendor or any CNA. The identifier is "
+                          "CVE-PENDING and state is RESERVED because no number has been "
+                          "allocated; this is not an assigned CVE record. This record is "
+                          "published in a public repository ahead of vendor notification, "
+                          "so downstream users should treat the finding as live.",
             "scope_limitation": ("Arbitrary class instantiation and readObject execution are "
                                  "confirmed. End-to-end command execution is not, and is not "
                                  "claimed. See the description."),
@@ -274,7 +281,11 @@ RECORDS = {
         refs=[f"{REPO}/README.md#v3--external-worker-identity-is-a-replayable-disclosed-string",
               f"{REPO}/report.md", f"{REPO}/poc/v3_worker_impersonation.py"],
         notes={
-            "disclosure": "Not yet reported. This record is RESERVED.",
+            "disclosure": "Not yet reported to the vendor or any CNA. The identifier is "
+                          "CVE-PENDING and state is RESERVED because no number has been "
+                          "allocated; this is not an assigned CVE record. This record is "
+                          "published in a public repository ahead of vendor notification, "
+                          "so downstream users should treat the finding as live.",
             "not_claimed": ("Cross-job impersonation is not claimed and was tested and rejected. "
                             "Bulk unacquire cross-tenant scope is read from source, not measured."),
             "exploit_tier": ("Proof-of-Concept. The published PoC creates its own definition and its "
