@@ -1,0 +1,13 @@
+
+=== F4: anonymously served Swagger UI loads its spec from an unvalidated ?url= ===
+$ curl -o /dev/null -w '%{http_code}' '.../docs/?url=http://evil.example/x.json'  -> 200  (page served, no auth)
+$ curl -o /dev/null -w '%{http_code}' '.../docs/'  -> 200
+
+static/docs/index.html client-side sink:
+36:      var url = window.location.search.match(/url=([^&]+)/);
+38:        url = decodeURIComponent(url[1]);
+40:        switch (url) {
+70:        window.location.search=window.location.search + '?url=specfile/process/flowable-swagger-process.json';
+134:          var url = window.location.search.match(/url=([^&]+)/);
+
+SecurityConfiguration.java:61-71 permits /docs/** without authentication.

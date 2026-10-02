@@ -1,0 +1,7 @@
+
+=== F6: credential storage (noop encoder) ===
+$ select ID_, PWD_ from ACT_ID_USER
+ID_        | PWD_
+rest-admin | test
+lowpriv    | lowpass
+(2 rows, 1 ms)

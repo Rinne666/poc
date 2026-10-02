@@ -1,0 +1,10 @@
+
+=== F10 REJECTED: Jackson type id is not honoured on variable request DTOs ===
+$ POST /runtime/process-instances  variables:[{name:poly,type:json,value:{"@class":"java.util.HashMap",...}}]
+  stored as: {'name': 'poly4', 'scope': 'global', 'type': 'json', 'value': {'@class': 'java.util.HashMap', 'canary': 'REACHED'}}
+
+$ type=serializable inside a JSON variable list
+  HTTP 400  "Variable 'poly2' has unsupported type: 'serializable'."
+
+=> @class is stored verbatim as inert json; no PolymorphicTypeValidator is exercised and
+   no attacker-named class is instantiated. The variable DTOs are not a polymorphic sink.

@@ -1,0 +1,11 @@
+# macOS
+.DS_Store
+
+# lab residue — never committed
+labdb/
+*.log
+*.log.*
+# lab residue — never committed
+labdb/
+*.log
+*.log.*

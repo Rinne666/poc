@@ -1,0 +1,32 @@
+
+=== F2: H2 AUTO_SERVER listener binding ===
+$ lsof -nP -iTCP:9091 -sTCP:LISTEN
+COMMAND   PID  USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
+java    71617 rinne    9u  IPv6 0x2d00e25f898ce3d8      0t0  TCP *:9091 (LISTEN)
+
+$ cat db/ossdb.lock.db
+#FileLock
+#Fri Oct 02 15:38:06 CST 2026
+server=localhost\:9091
+hostName=localhost
+method=file
+id=1a0fb8c87c4209e06689361a55c43238f50ba72fc66
+
+$ JDBC over TCP with NO key (rejected by checkKeyAndGetDatabaseName)
+org.h2.jdbc.JdbcSQLInvalidAuthorizationSpecException: Wrong user name or password [28000-240]
+  at org.h2.server.TcpServer.checkKeyAndGetDatabaseName(TcpServer.java:519)
+  at org.h2.server.TcpServerThread.run(TcpServerThread.java:142)
+
+$ second JVM, only the lock file available, no explicit key:
+ID_
+createTimersProcess:1:3629c554-be34-11f1-b26f-6211d8ffd8b2
+escalationExample:1:3629c552-be34-11f1-b26f-6211d8ffd8b2
+externalWorkerTest:1:818fae85-be34-11f1-b26f-6211d8ffd8b2
+externalWorkerTest:2:8792fd14-be34-11f1-b26f-6211d8ffd8b2
+externalWorkerTest:3:1852a759-be35-11f1-b26f-6211d8ffd8b2
+externalWorkerTest:4:30232686-be35-11f1-b26f-6211d8ffd8b2
+fixSystemFailure:1:3629c550-be34-11f1-b26f-6211d8ffd8b2
+groovyRceProbe:1:1ff267cc-be35-11f1-b26f-6211d8ffd8b2
+oneTaskProcess:1:3629c553-be34-11f1-b26f-6211d8ffd8b2
+reviewSaledLead:1:3629c551-be34-11f1-b26f-6211d8ffd8b2
+vacationRequest:1:36299e3f-be34-11f1-b26f-6211d8ffd8b2

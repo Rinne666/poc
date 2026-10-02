@@ -1,0 +1,25 @@
+# Dynamic verification evidence — flowable-engine 8.1.0-SNAPSHOT @ 74fdb349c1
+
+Target:  modules/flowable-app-rest (flowable-rest.war, 95 MB executable Spring Boot war)
+Commit:  74fdb349c134e96e1f10592020ccca6e2e4b85f0 (clean worktree)
+Build:   mvn -B -Pdistro -pl modules/flowable-app-rest -am install -DskipTests  => BUILD SUCCESS, 95 modules, 03:21
+Runtime: Tomcat 11.0.21 / Spring Boot 4.1.0-RC1 / Spring 7.0.7 / JDK 17.0.20.1 (arm64 macOS)
+Base URL: http://localhost:8080/flowable-rest   (BPMN servlet prefix overridden to /service by flowable-default.properties:43)
+
+NOTE ON METHOD: all requests were issued against this locally built instance.
+The CveProbe gadget class was injected into WEB-INF/classes of the war solely to
+obtain a deterministic readObject() side effect. Finding 11's conclusion (arbitrary
+class deserialization) does not depend on that injection; the injection only makes
+the readObject execution observable.
+
+ARTIFACT MODIFICATION (disclosed):
+  flowable-rest.war was repackaged once with `jar uf` to add the 30-byte CveProbe.class to
+  WEB-INF/classes. That is the only change made to any build output. It exists solely to make
+  F11's readObject() execution observable; no application code, property or dependency was
+  changed, and every other finding was reproduced against the unmodified application.
+  The war lives under target/ and is not tracked by git. The repository worktree is clean
+  (git status --porcelain -> 0 entries) at 74fdb349c1.
+
+CLEANUP:
+  The flowable process and the local callback listener were stopped after verification.
+  The lab H2 database was deleted; it held an 80 MB BLOB left by the F5 decompression test.

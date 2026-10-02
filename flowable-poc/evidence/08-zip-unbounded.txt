@@ -1,0 +1,9 @@
+
+=== F5: zip deployment has no decompression bound ===
+upload : bigzip.zip = 82,101 bytes (2 entries)
+content: externalWorkerTest.bpmn20.xml + 80 MB of zeros  => 80.0 MB uncompressed
+
+$ ps -o rss= -p <flowable pid>   before = 466,160 KB
+$ curl -u lowpriv:lowpass -F file=@bigzip.zip .../repository/deployments
+  HTTP 200  {"id":"3021ee03-be35-11f1-b26f-6211d8ffd8b2", ...}
+$ ps -o rss= -p <flowable pid>   after  = 1,182,384 KB   (+716 MB from an 82 KB request)

@@ -1,0 +1,82 @@
+# Detects whether the runtime variable API accepts type=serializable uploads.
+#
+# SIDE EFFECT: this probe creates ONE process instance and ONE variable on the
+# target. It sends a 20-byte java.util.ArrayList serialization stream with no side
+# effect when deserialized — no gadget, no code execution. Do not run against a
+# production instance without authorisation.
+#
+# Verify the finding itself with flowable-poc/poc/v2_serializable_deser.py, which
+# additionally performs the byte-identical read-back proof.
+id: flowable-rest-serializable-variable-accepts
+info:
+  name: Flowable REST - serializable runtime variable accepted (CWE-502)
+  author: rinne666
+  severity: high
+  classification:
+    cwe-id: CWE-502
+  metadata:
+    max-request: 2
+    product: flowable-engine
+    disclosure: unreported
+  description: |
+    The runtime variable API accepts type=serializable and passes the uploaded bytes
+    to a bare ObjectInputStream with no ObjectInputFilter. A match means
+    caller-supplied bytes are deserialized. Command execution is NOT verified by this
+    template; the default commons-collections on the shipped classpath gates its own
+    InvokerTransformer.
+
+variables:
+  instance_marker: "nuclei-flowable-poc"
+  # java.util.ArrayList containing ["nuclei"] — validated well-formed, inert.
+  payload: "rO0ABXNyABNqYXZhLnV0aWwuQXJyYXlMaXN0eIHSHZnHYZ0DAAFJAARzaXpleHAAAAABdwQAAAABdAA5udWNsZWk="
+
+flow:
+  - http:
+      - method: POST
+        path:
+          - "{{BaseURL}}/service/runtime/process-instances"
+        headers:
+          Authorization: "Basic {{base64('{{username}}:{{password}}')}}"
+          Content-Type: "application/json"
+        body: '{"processDefinitionKey":"oneTaskProcess"}'
+        extractors:
+          - type: json
+            json:
+              - '.id'
+            name: pid
+        attack: batteringram
+        payloads:
+          instance_marker:
+            - "{{pid}}"
+
+  - http:
+      - method: POST
+        path:
+          - "{{BaseURL}}/service/runtime/process-instances/{{pid}}/variables"
+        headers:
+          Authorization: "Basic {{base64('{{username}}:{{password}}')}}"
+          Content-Type: "multipart/form-data; boundary=nucleiboundary"
+        body: |
+          --nucleiboundary
+          Content-Disposition: form-data; name="name"
+
+          nuclei-serializable-probe
+          --nucleiboundary
+          Content-Disposition: form-data; name="type"
+
+          serializable
+          --nucleiboundary
+          Content-Disposition: form-data; name="value"; filename="p.ser"
+          Content-Type: application/octet-stream
+
+          {{payload}}
+          --nucleiboundary--
+        matchers:
+          - type: status
+            status:
+              - 200
+              - 201
+          - type: word
+            part: body
+            words:
+              - '"type":"serializable"'

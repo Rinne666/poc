@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PoC payload for Flowable Engine REST API — finding V3 (CWE-639).
+
+  Inert. Declares one external service task on a PoC-specific topic so that the
+  proof script can create, acquire and release its own jobs. It reaches no external
+  system, calls nothing, and touches no pre-existing definition.
+
+  The same document is embedded in poc/v3_worker_impersonation.py so that script
+  stands alone; this copy exists so the payload can be reviewed without reading code.
+-->
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:flowable="http://flowable.org/bpmn"
+             targetNamespace="http://bpmn.io/schema/bpmn">
+
+  <process id="flowable-poc-v3-proc" name="Flowable PoC - external worker" isExecutable="true">
+    <startEvent id="start"/>
+    <sequenceFlow id="f1" sourceRef="start" targetRef="task"/>
+
+    <serviceTask id="task" name="external work"
+                 flowable:type="external"
+                 flowable:topic="flowable-poc-v3-topic"/>
+
+    <sequenceFlow id="f2" sourceRef="task" targetRef="end"/>
+    <endEvent id="end"/>
+  </process>
+</definitions>

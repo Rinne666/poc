@@ -1,0 +1,12 @@
+
+=== F1 REJECTED: CMMN / event-registry authentication is enforced at runtime ===
+  401  (no credentials)  /cmmn-api/cmmn-repository/case-definitions
+  401  (no credentials)  /cmmn-api/cmmn-runtime/case-instances
+  401  (no credentials)  /event-registry-api/event-registry-repository/event-definition-deployments
+  401  (no credentials)  /idm-api/users
+  401  (no credentials)  /dmn-api/dmn-repository/decision-definitions
+  401  (no credentials)  /app-api/app-repository/deployments
+
+=> The shipped SecurityConfiguration filter chain is the only one in src/main and it
+   guards every servlet. The unregistered CMMN/event-registry BasicAuthenticationProvider
+   classes are unreachable, exactly as the finding itself claimed; there is no bypass.

@@ -1,0 +1,44 @@
+# Detects disclosure of the external-worker lockOwner in the job resource.
+#
+# READ-ONLY. Requires a jobId as input; the job must exist on the target. Fetch one
+# with:
+#   POST {{BaseURL}}/external-job-api/acquire/jobs
+#   {"topic":"<topic>","workerId":"<any string>","lockDuration":"PT60S","numberOfTasks":1}
+# A match means the supplied principal can read who owns a job — the precondition for
+# V3 (CWE-639), since lockOwner is the only credential the API ever checks.
+id: flowable-rest-worker-lockowner-disclosure
+info:
+  name: Flowable REST - external worker lockOwner disclosed
+  author: rinne666
+  severity: high
+  classification:
+    cwe-id: CWE-639
+  metadata:
+    max-request: 1
+    product: flowable-engine
+    disclosure: unreported
+  description: |
+    GET /external-job-api/jobs/{jobId} returns the current lockOwner to any
+    authenticated caller. Because workerId is never bound to the authenticated
+    principal, any access-rest-api holder who can read a jobId can act as its owner.
+    This template does not perform the impersonation; see
+    flowable-poc/poc/v3_worker_impersonation.py for the full demonstration.
+
+variables:
+  jobId: "{{jobId}}"
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/external-job-api/jobs/{{jobId}}"
+    headers:
+      Authorization: "Basic {{base64('{{username}}:{{password}}')}}"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+      - type: regex
+        part: body
+        regex:
+          - '"lockOwner"\s*:\s*"[^"]+"'

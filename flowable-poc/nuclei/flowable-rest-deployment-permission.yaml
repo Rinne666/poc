@@ -1,0 +1,43 @@
+# Detects whether a principal can reach the process-deployment endpoint.
+#
+# This is a CONFIGURATION-RISK probe, not a vulnerability verification: it does not
+# deploy anything and does not execute a script. A match means the supplied account
+# can deploy process definitions, which — because flowable-app-rest ships the
+# unsandboxed Groovy engine — is the precondition for V1 (CWE-94).
+#
+# Verify the finding itself with flowable-poc/poc/v1_deployment_rce.py.
+id: flowable-rest-deployment-permission
+info:
+  name: Flowable REST - principal can reach process deployment
+  author: rinne666
+  severity: info
+  classification:
+    cwe-id: CWE-94
+  metadata:
+    max-request: 1
+    product: flowable-engine
+    disclosure: unreported
+  description: |
+    The Flowable Engine REST API authorizes repository deployment with the same
+    access-rest-api privilege used for API consumption. Confirm whether the supplied
+    principal can reach POST /service/repository/deployments. The BPMN API is
+    served under /service/ in the shipped build, not /process-api/.
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/service/repository/deployments"
+    headers:
+      Authorization: "Basic {{base64('{{username}}:{{password}}')}}"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+          - 201
+      - type: word
+        part: body
+        words:
+          - '"data"'
+          - '"deployments"'
+        condition: or

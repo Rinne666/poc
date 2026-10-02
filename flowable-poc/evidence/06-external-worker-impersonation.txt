@@ -1,0 +1,24 @@
+
+=== F9 + F8: external worker identity is a request-body string, not a bound principal ===
+-- lockOwner is disclosed to any access-rest-api caller --
+
+-- complete: wrong workerId rejected, impersonated workerId accepted --
+  attacker-worker-999        -> HTTP 403  "attacker-worker-999 does not hold a lock on the requested job"
+  victim-worker-001          -> HTTP 204  (process instance endTime then written)
+
+-- fail: impersonated workerId burns retries and injects an error message --
+   after fail -> retries = 2  lockOwner = None  exceptionMessage = 'injected by attacker'
+
+-- unacquire: impersonated workerId steals a still-locked job --
+  locked-worker-777          -> HTTP 204, lockOwner/lockExpirationTime cleared to null
+  attacker-zzz               -> HTTP 403  "attacker-zzz does not hold a lock on the requested job"
+
+-- bulk unacquire: no per-job ownership check, caller only names a workerId --
+  POST /external-job-api/unacquire/jobs {"workerId":"bulk-victim"}  -> HTTP 204 (2 jobs released)
+
+-- live lockOwner disclosure (fresh job) --
+   jobId          = 578cdf4e-be35-11f1-b26f-6211d8ffd8b2
+   GET /external-job-api/jobs/578cdf4e ->...
+   lockOwner      = 'victim-worker-SECRET'
+   lockExpiration = 2026-10-02T07:47:13.671Z
+   unauthenticated GET -> 401
