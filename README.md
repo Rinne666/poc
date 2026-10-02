@@ -17,6 +17,8 @@ This repository is public. That was a deliberate choice by the maintainer of thi
 to support a CNA submission. It has a consequence worth stating plainly rather than burying: for
 the Flowable findings, downstream users of that product have no vendor warning period yet. If you
 run Flowable's REST application, treat the findings as live until the project publishes a fix.
+The same applies to the astron-agent findings: iFlytek has not been notified at publication time,
+so operators of that platform should treat them as live.
 
 The sequence that would normally precede publication:
 
@@ -76,6 +78,14 @@ poc/
 │   ├── nuclei/                Nuclei detection templates
 │   ├── env/                   how to build and run the target, plus minimal payloads
 │   └── evidence/              verbatim captured output backing every claim
+├── astron-agent-poc/          iFlytek astron-agent (Console backend, workflow engine, core-database)
+│   ├── README.md              one-line-per-finding summary, affected versions, links
+│   ├── report.md              full reproduction report: environment, steps, expected output
+│   ├── poc/                   runnable proofs, one file per finding
+│   ├── cve/                   CVE JSON 5.1 records, ready for CNA submission
+│   ├── nuclei/                Nuclei detection templates
+│   ├── env/                   how to build and run the target, plus the victim-flow seed
+│   └── evidence/              session records backing every claim (redacted; see evidence/README.md)
 └── _template/                 scaffold for a new project
 ```
 

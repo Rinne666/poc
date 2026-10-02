@@ -9,3 +9,5 @@ labdb/
 labdb/
 *.log
 *.log.*
+__pycache__/
+*.pyc

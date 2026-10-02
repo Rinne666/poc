@@ -1,0 +1,47 @@
+# Detects the UNAUTHENTICATED API surface of the astron-agent core-database service.
+#
+# SAFE: the request body is empty, so Pydantic validation rejects it (HTTP 422)
+# before any handler runs. Nothing is created, read or executed.
+#
+# A patched or hardened deployment that requires authentication on /xingchen-db/v1/*
+# would answer 401/403 instead of the FastAPI 422 validation error. This template
+# detects the exposure precondition of the DDL whitelist bypass; it does not send
+# any DDL. See astron-agent-poc/poc/v1_ddl_whitelist_comment_smuggling.py for the
+# demonstration.
+id: astron-agent-execddl-unauth-api
+info:
+  name: astron-agent core-database - unauthenticated xingchen-db API surface
+  author: rinne666
+  severity: medium
+  classification:
+    cwe-id: CWE-184
+  metadata:
+    max-request: 1
+    product: astron-agent
+    disclosure: unreported
+  description: |
+    The core-database service mounts /xingchen-db/v1/* with no request
+    authentication (core/memory/database/main.py:114). An unauthenticated peer
+    that can reach the port receives FastAPI's 422 validation error for a
+    malformed request, which fingerprints the unauthenticated route. The stock
+    compose/Helm definitions do not publish port 7990, so scan only addresses
+    you are authorised to test.
+
+http:
+  - method: POST
+    path:
+      - "{{BaseURL}}/xingchen-db/v1/exec_ddl"
+    headers:
+      Content-Type: application/json
+    body: '{}'
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 422
+      - type: word
+        part: body
+        words:
+          - '"detail"'
+          - 'ddl'
+        condition: and

