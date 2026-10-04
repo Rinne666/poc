@@ -212,8 +212,18 @@ The guard was merged to `main` on 2026-09-14
 `release-2026.1.x`, `release-2026.2.x` and `release-2026.3.x`
 ([#8016](https://github.com/spinnaker/spinnaker/pull/8016),
 [#8017](https://github.com/spinnaker/spinnaker/pull/8017),
-[#8018](https://github.com/spinnaker/spinnaker/pull/8018)). `rosco-2026.3.1` was tagged 2026-09-24
-and carries the hardened guard.
+[#8018](https://github.com/spinnaker/spinnaker/pull/8018)).
+
+**That guard was incomplete, and the gap this report documents is what
+[#8034](https://github.com/spinnaker/spinnaker/pull/8034) closed.** #8034 is the PR that threads an
+env map through `BakeRecipe -> JobRequest -> JobExecutorLocal` "for the first time" in order to
+disable hooks and insecure template functions on the helmfile subprocess itself; it is cherry-picked
+into `release-2026.1.x` (commit `3039b0f`). The vendor's own
+[Next Release Preview](https://www.spinnaker.io/community/releases/next-release-preview/) credits
+the pair together — *"`#8015` and `#8034` close a local-code-execution vector in Rosco's helmfile
+baking"* — and lists it under **Breaking Changes for release 2026.4.0**.
+
+`rosco-2026.3.1` was tagged 2026-09-24 and already carries the hardened guard.
 
 | Gap demonstrated in `evidence/` | State at `rosco-2026.3.1` |
 |---|---|
@@ -229,9 +239,18 @@ directories and tracks visited paths against symlink cycles.
 
 **Method and its limit.** This was established by reading
 `rosco/rosco-manifests/src/main/java/com/netflix/spinnaker/rosco/manifests/helmfile/HelmfileTemplateUtils.java`
-at tag `rosco-2026.3.1`. Only that tag was inspected. Whether `release-2026.1.x` / `release-2026.2.x`
-patch releases carry the same hardening, and what exists for `release-2026.0.x` and
-`release-2025.4.x` (which received no backport), was **not** checked.
+at tag `rosco-2026.3.1`. Only that tag was inspected. Whether the `release-2026.1.x` /
+`release-2026.2.x` / `release-2026.3.x` patch releases carry the same hardening, and what exists for
+`release-2026.0.x` and `release-2025.4.x` (which received no backport), was **not** checked.
+
+**Scope, per the vendor's own release notes.** Only the helmfile path changed: *"Plain `helm
+template` and `kustomize build` baking are unaffected."* The change is flagged as a **breaking
+change** for 2026.4.0, with a deliberate opt-in for operators who trust their sources:
+
+```yaml
+helmfile:
+  allow-hooks-and-post-renderers: true
+```
 
 ## 8. Correction: CVSS was 8.8 in the first-filed advisory
 
@@ -253,7 +272,13 @@ precedent is followed — it scored the same class of crossing `Scope: Changed` 
 9.0 is primary because the measured blast radius stays inside the rosco process (§6).
 
 The correction is recorded here rather than quietly dropped, per this repository's convention: the
-advisory was sent at 8.8, and a reader who saw it deserves to know it was an arithmetic error.
+advisory was sent at 8.8, and a reader who saw it deserves to know it was an arithmetic error — and
+that the vendor's own ranking independently landed on 9.0.
+
+**The vendor chose the same vector.** The maintainer confirmed
+`AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H:A:H` as the ranking in use, so the CVE will carry 9.0 and the
+arithmetic slip in the filed advisory never reaches a published record. No correction to the vendor
+is required on this point.
 
 ## 9. Provenance
 

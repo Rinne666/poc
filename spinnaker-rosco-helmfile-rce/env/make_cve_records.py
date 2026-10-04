@@ -94,20 +94,30 @@ DESCRIPTION = (
     "All released versions through 2026.3.0 (2026-09-07) contain no guard at all, so a hooks "
     "entry in the entry file executes with no bypass required. A guard was merged to main on "
     "2026-09-14 (#8015) and backported to release-2026.1.x, release-2026.2.x and "
-    "release-2026.3.x the same day. rosco-2026.3.1 (2026-09-24, commit 3567b1c) ships the "
-    "hardened guard: content that fails to parse is now rejected rather than skipped, and "
-    "`helmfiles:` sub-helmfiles are now inspected. That release additionally sets "
-    "HELMFILE_DISABLE_HOOKS and HELMFILE_DISABLE_INSECURE_FEATURES on the subprocess, "
-    "disabling helmfile's exec/envExec/readFile template functions independently of the static "
-    "guard."
+    "release-2026.3.x the same day. That first guard was incomplete, and #8034 closed the gaps "
+    "this report demonstrated: rosco-2026.3.1 (2026-09-24, commit 3567b1c) already carries the "
+    "hardened form, in which content that fails to parse is rejected rather than skipped, "
+    "`helmfiles:` sub-helmfiles are inspected, and HELMFILE_DISABLE_HOOKS / "
+    "HELMFILE_DISABLE_INSECURE_FEATURES are set on the helmfile subprocess itself. The project "
+    "lists the change as a breaking change for release 2026.4.0 and notes that plain helm "
+    "template and kustomize build baking are unaffected."
 )
 
 NOTES = {
     "disclosure": (
-        "Reported to the Spinnaker Security SIG at security@spinnaker.io. The fix shipped in "
-        "rosco-2026.3.1 (2026-09-24, commit 3567b1c). The identifier here is a placeholder "
-        "until a CNA allocates a real one; state is RESERVED, so this is not an assigned CVE "
-        "record."
+        "Reported to the Spinnaker Security SIG at security@spinnaker.io. The vendor confirmed "
+        "the finding, added the reporter as a CVE contact, and requested a CVE. The fix shipped "
+        "in rosco-2026.3.1 (2026-09-24, commit 3567b1c) and is announced as a breaking change "
+        "for release 2026.4.0. The identifier here is a placeholder until a number is "
+        "allocated; state is RESERVED, so this is not an assigned CVE record."
+    ),
+    "vendor_ranking": (
+        "The maintainer confirmed CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H as the ranking in "
+        "use, which evaluates to 9.0. Note for comparison: CVE-2026-55175 "
+        "(GHSA-p68j-q7hf-3qcp) is a different finding in this same package - unsafe YAML tag "
+        "processing in the Kustomize bake path - and the project scored it 7.5 with AC:H. This "
+        "finding is scored AC:L because a hooks entry is inert unless a bake actually references "
+        "it, whereas the Kustomize deserialisation fires on the file being read at all."
     ),
     "not_claimed": (
         "No privilege escalation beyond the rosco process was demonstrated. Code execution as "
@@ -196,6 +206,11 @@ def build(cve_id: str, state: str, published: str | None) -> dict:
                         "spinnaker-rosco-helmfile-rce/poc/entry_hook_marker.py"
                     },
                     {"url": "https://github.com/spinnaker/spinnaker/pull/8015"},
+                    {"url": "https://github.com/spinnaker/spinnaker/pull/8034"},
+                    {
+                        "url": "https://www.spinnaker.io/community/releases/"
+                        "next-release-preview/"
+                    },
                 ],
                 "metrics": [
                     {
@@ -221,11 +236,12 @@ def build(cve_id: str, state: str, published: str | None) -> dict:
                     {
                         "type": "vendor-fix",
                         "value": (
-                            "Upgrade to rosco 2026.3.1 or later, which ships the hardened guard. "
-                            "As defence in depth beyond the static YAML inspection, keep "
-                            "HELMFILE_DISABLE_HOOKS and HELMFILE_DISABLE_INSECURE_FEATURES set "
-                            "(2026.3.1 does this by default unless the helmfile source is "
-                            "explicitly opted in via helmfile.allow-hooks-and-post-renderers)."
+                            "Upgrade to rosco 2026.3.1 or later. The project ships this as a "
+                            "breaking change in 2026.4.0: only the helmfile path is affected, and "
+                            "plain helm template and kustomize build baking are unaffected. As "
+                            "defence in depth beyond the static YAML inspection, 2026.3.1 sets "
+                            "HELMFILE_DISABLE_HOOKS and HELMFILE_DISABLE_INSECURE_FEATURES on the "
+                            "helmfile subprocess unless the source is explicitly opted in."
                         ),
                     }
                 ],

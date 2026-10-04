@@ -15,7 +15,7 @@ project you are about to rely on:
 
 | Project | State | Consequence for an operator |
 |---|---|---|
-| `spinnaker-rosco-helmfile-rce` | **reported, and fixed** in rosco 2026.3.1 | upgrade to 2026.3.1 or later. ≤ 2026.3.0 is exposed |
+| `spinnaker-rosco-helmfile-rce` | **reported, fixed, credited**; CVE requested, not yet allocated | upgrade to rosco 2026.3.1 or later. ≤ 2026.3.0 is exposed |
 | `flowable-poc` | not yet reported to the vendor or any CNA | treat as live until Flowable publishes a fix |
 | `astron-agent-poc` | not yet reported to iFlytek or any CNA | treat as live; there is no fix to wait for |
 

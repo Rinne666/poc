@@ -7,9 +7,12 @@
 that tag, see [Fix status](#fix-status) below
 **Commit tested** the running service was `rosco:main-latest` as of **2026-09-19**, on a 10-container
 stack (deck / gate / orca / rosco / clouddriver / front50 / echo + redis + mysql + attacker)
-**Disclosure state** **reported and fixed.** Submitted to the Spinnaker Security SIG at
-`security@spinnaker.io`; the fix shipped in `rosco-2026.3.1`. No CVE ID has been published at the
-time of writing, so `cve/` carries a `CVE-PENDING-*` identifier with `state: RESERVED`.
+**Disclosure state** **reported, fixed, and credited.** Submitted to the Spinnaker Security SIG at
+`security@spinnaker.io`. The vendor confirmed the finding, added the reporter as a CVE contact,
+requested a CVE, and shipped the fix. As of this writing the CVE has been requested but **no CVE ID
+has been published**, so `cve/` carries a `CVE-PENDING-*` identifier with `state: RESERVED`.
+**Vendor ranking (confirmed by the maintainer): `AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H`** — the same
+vector used here, which evaluates to **9.0**.
 
 > **This is not live.** Unlike the other two projects in this repository, the vendor was notified and
 > a fix exists. If you run rosco **2026.3.1 or later** you are not affected. If you run **2026.3.0 or
@@ -69,10 +72,24 @@ Base     = Roundup(min(5.873 + 3.110, 10))    = 9.0
 python3 env/cvss.py "AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H"   # 9.0
 ```
 
-A `Scope: Changed` reading (`AV:N/AC:L/PR:L/UI:N/S:C/C:H/I:H/A:H`) gives **9.9**, and is arguably the
+A `Scope: Changed` reading (`AV:N/AC:L/PR:L/UI:N/S:C/C:H/I:H:A:H`) gives **9.9**, and is arguably the
 better fit: code execution inside rosco can reach clouddriver, orca and front50, which sit across a
 trust boundary from the bake caller. The 9.0 figure is used as primary here because the demonstrated
 blast radius stays within the rosco process.
+
+**The vendor arrived at the same vector independently.** The maintainer confirmed
+`AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H` as the ranking in use, which means the 9.0 in this repository
+and the score that will land in the CVE are the same number — the 8.8 in the originally filed
+advisory is superseded rather than contradicted, and no correction to the vendor is needed.
+
+One precedent is worth knowing when reading the two rosco advisories side by side. **CVE-2026-55175**
+(GHSA-p68j-q7hf-3qcp) is a *different* finding in the same package — unsafe YAML tag processing in
+the **Kustomize** bake path — and the project scored it **7.5** with `AC:H`, reasoning that the
+attacker must place a malicious file somewhere rosco will fetch. This finding is scored `AC:L`
+despite a similar supply-chain shape, because a `hooks:` entry is inert unless the bake actually
+references it, whereas the Kustomize deserialisation fires on the file being read at all. That
+distinction is the vendor's call and it is recorded here so a reader comparing the two advisories
+is not left guessing.
 
 ### Scope note — why this is in this repository
 
@@ -113,7 +130,28 @@ Measured by unzipping `rosco-manifests-*.jar` from each image and counting
 ## Fix status
 
 The gaps this repository's evidence demonstrates against the **2026-09-19** `main-latest` build were
-closed before the 2026-09-24 release. Read at tag `rosco-2026.3.1`,
+closed before the 2026-09-24 release. **Two PRs did it, not one**, and the vendor's own release
+notes say so:
+
+| PR | Role |
+|---|---|
+| [#8015](https://github.com/spinnaker/spinnaker/pull/8015) | the default-deny guard itself, merged 2026-09-14, backported the same day to `release-2026.1.x` ([#8016](https://github.com/spinnaker/spinnaker/pull/8016)), `release-2026.2.x` ([#8017](https://github.com/spinnaker/spinnaker/pull/8017)), `release-2026.3.x` ([#8018](https://github.com/spinnaker/spinnaker/pull/8018)) |
+| [#8034](https://github.com/spinnaker/spinnaker/pull/8034) | the hardening — the gaps this repository demonstrates were **closed here**, not in #8015 |
+
+`#8034` threaded an env map through `BakeRecipe -> JobRequest -> JobExecutorLocal` "for the first
+time" to disable the features on the subprocess itself, and it is cherry-picked into
+`release-2026.1.x` (commit `3039b0f`).
+
+The project's own [Next Release Preview](https://www.spinnaker.io/community/releases/next-release-preview/)
+lists this under **Breaking Changes for release 2026.4.0**, and describes it in terms that match this
+report closely — including the supply-chain framing:
+
+> `#8015` and `#8034` close a local-code-execution vector in Rosco's helmfile baking: a
+> `helmfile.yaml` (a user-supplied input artifact, potentially from a git branch anyone can push to)
+> could declare `hooks:` or `postRenderers:`/`--post-renderer` args that run an arbitrary local
+> command during an otherwise side-effect-free `helmfile template` bake.
+
+Read at tag `rosco-2026.3.1`,
 `rosco/rosco-manifests/src/main/java/com/netflix/spinnaker/rosco/manifests/helmfile/HelmfileTemplateUtils.java`:
 
 | Gap the evidence shows | State at `rosco-2026.3.1` |
@@ -132,17 +170,28 @@ credit:
 2. The guard enumerates `helmfile.d/` fragment directories, tracks a `visited` set against symlink
    cycles, and resolves `helmfiles:` entries in both bare-string and `{path: ...}` form.
 
-**What was not verified.** Only `rosco-2026.3.1` was inspected. The fix was also backported to
-`release-2026.1.x`, `release-2026.2.x` and `release-2026.3.x`
-([#8016](https://github.com/spinnaker/spinnaker/pull/8016),
-[#8017](https://github.com/spinnaker/spinnaker/pull/8017),
-[#8018](https://github.com/spinnaker/spinnaker/pull/8018)); whether those branches' patch releases
-carry the same hardened guard, and what the equivalent patch releases for `release-2026.0.x` and
-`release-2025.4.x` are, was **not** checked. Treat the table above as scoped to 2026.3.1.
+**What was not verified.** Only `rosco-2026.3.1` was inspected. Whether the `release-2026.1.x` /
+`release-2026.2.x` / `release-2026.3.x` patch releases carry the same hardened guard, and what the
+equivalent patch releases for `release-2026.0.x` and `release-2025.4.x` are, was **not** checked.
+Treat the table above as scoped to 2026.3.1.
 
 **This fix was verified by reading source at the tag, not by executing the PoC against a 2026.3.1
 build.** The reproduction evidence in `evidence/` is from the 2026-09-19 run against the *vulnerable*
 configuration. A negative-result run against 2026.3.1 has not been performed.
+
+### Scope of the fix, as the vendor states it
+
+Worth knowing before an operator reacts to the breaking-change label:
+
+- **Only the helmfile path is affected.** Per the release notes, *"Plain `helm template` and
+  `kustomize build` baking are unaffected."*
+- **It is a breaking change, with an opt-in.** Operators who trust their helmfile sources can
+  restore the old behaviour deliberately:
+
+  ```yaml
+  helmfile:
+    allow-hooks-and-post-renderers: true
+  ```
 
 ---
 
