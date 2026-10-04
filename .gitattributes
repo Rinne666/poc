@@ -1,0 +1,16 @@
+# Normalise line endings to LF in the repository, and check out LF everywhere.
+#
+# This is not cosmetic. The spinnaker-rosco-helmfile-rce PoC generates helmfile
+# payloads whose hooks run inside a shell, and those payloads MUST be LF-only: a CRLF
+# turns `id` into `id\r`, the command fails, and the failure is indistinguishable from
+# the guard rejecting the request. On a contributor with core.autocrlf=true -- the
+# Windows default -- that mistake would be invisible in the diff and would silently
+# break the reproduction for everyone who clones.
+#
+# The report records the same pitfall as #4 in its "trigger did not fire" checklist.
+* text=auto eol=lf
+
+# Binary evidence, never line-ending translated.
+*.png binary
+*.jpg binary
+*.zip binary

@@ -1,0 +1,8 @@
+=== F-01 rosco helmfile hook executed ===
+uid=10111(spinnaker) gid=10111(spinnaker) groups=10111(spinnaker),10111(spinnaker)
+44c48ade52c2
+44c48ade52c2
+Sat Sep 19 03:42:01 UTC 2026
+cwd=/tmp/rosco-15551348249474366445
+staging=/tmp/ROSCO_UI_POC.txt /tmp/bake_resp.json /tmp/bakeenv /tmp/helmfile2589816572 /tmp/hsperfdata_spinnaker 
+beacon_http=404

@@ -1,0 +1,106 @@
+# F-01 纯 HTTP 复现（Burp / curl 等价路径，零浏览器）—— 2026-09-19
+
+问题：这条漏洞能在前端用 Burp 这类工具实现吗，还是需要别的方法？
+结论：**分角色。** 发起方（流水线定义）Burp/curl 完全够用且比 UI 更省事；
+       但漏洞声明的**最小前提**（控制制品内容）压根用不到 HTTP 拦截工具。
+
+================================================================================
+一、实测：三个请求走完全链（无浏览器、无 agent-browser）
+================================================================================
+gate 在宿主机 127.0.0.1:8084；deck 在 9000。本栈 auth 关闭，请求以 user=anonymous 执行。
+
+# ① 创建流水线（POST 一个 JSON 即可；gate 内部转成 orca 的 savePipeline 编排任务）
+curl -s -X POST -H 'Content-Type: application/json' \
+     --data-binary @pipeline-burp.json \
+     http://localhost:8084/pipelines
+-> HTTP=200
+
+# ② 确认落库（front50 自动补 id）
+curl -s "http://localhost:8084/applications/rosco-poc/pipelineConfigs"
+-> rosco-poc-burp  id=c8c119c6-39b2-4d4e-862b-97ba8d16ca0d  stages=1  type=bakeManifest
+
+# ③ 触发
+curl -s -X POST -H 'Content-Type: application/json' --data '{}' \
+     http://localhost:8084/pipelines/v2/rosco-poc/rosco-poc-burp
+-> HTTP=202  {"eventId":"e548a0a3-...","ref":"/pipelines/01M2VZH09EC49698H987V356PV"}
+
+# ④ 查状态（注意：首次 GET 常 404，重试即 200 —— Spinnaker 已知行为，UI 日志同样现象）
+curl -s "http://localhost:8084/pipelines/01M2VZH09EC49698H987V356PV"
+
+执行详情：
+  id     = 01M2VZH09EC49698H987V356PV
+  name   = rosco-poc-burp
+  status = SUCCEEDED
+  origin = api        <- 注意：origin 是 api，不是 ui
+  trigger= manual
+  stage 1 bakeManifest -> SUCCEEDED [createBake=SUCCEEDED, bindProducedArtifacts=SUCCEEDED]
+
+rosco 容器内（marker，与上面执行时间戳对应）：
+  === F-01 rosco helmfile hook executed ===
+  uid=10111(spinnaker) gid=10111(spinnaker) groups=10111(spinnaker),10111(spinnaker)
+  44c48ade52c2
+  Sat Sep 19 04:41:52 UTC 2026
+  cwd=/tmp/rosco-1451484969692299614
+
+结论：**全程零浏览器**，纯 HTTP 即走完"定义 → 保存 → 触发 → 命令在 rosco 宿主执行"。
+
+================================================================================
+二、实测踩到的坑：202 是乐观返回，不能当成功凭证
+================================================================================
+第一次触发（保存后仅 11 秒）：
+  POST /pipelines/v2/rosco-poc/rosco-poc-burp  -> HTTP=202  ref=/pipelines/01M2VZF3YZJXPMA115C3AW8D4F
+  然后：orca 日志里该 executionId **0 命中**；GET /pipelines/{id} 一直 404；rosco 无标记。
+
+根因（已定位）：echo 的 pipeline 配置缓存**每 30 秒轮询 front50**
+（`PipelineConfigsPollingJob`，日志可见 `GET http://front50:8080/pipelines?restricted=false`）。
+流水线保存于 04:40:38（由 orca 的 savePipeline 任务完成），缓存上一次刷新在 04:40:34 ——
+触发发生在 04:40:49，**echo 缓存里还没有这条新流水线** → 事件被丢弃。
+
+第二次触发（等缓存刷新后，04:41:37）：202 → 立即产生执行 `01M2VZH09EC49698H987V356PV`，成功。
+
+工程含义（写给做自动化/上报的人）：
+  - **不要用 202 判断编排是否已创建。** 202 由 gate 乐观返回，事件可能根本没落地。
+  - 必须二次确认：`GET /applications/{app}/pipelineConfigs`（确认定义可见）
+    + 轮询 `GET /pipelines/{id}`（注意首发 404 属正常，要重试）。
+  - 通过 API 新建流水线后，留出 ≥1 个 echo 轮询周期（本栈约 30s）再触发，
+    或先用一次触发"预热"。
+
+================================================================================
+三、端点速查（本轮实测确认）
+================================================================================
+| 动作 | 方法 + 路径 | 实测 |
+|---|---|---|
+| 创建/保存流水线 | `POST /pipelines`        | 200（内部为 orca savePipeline 编排） |
+| 列出该应用流水线 | `GET /applications/{app}/pipelineConfigs` | 200 |
+| 触发 | `POST /pipelines/v2/{app}/{pipelineName}` | 202 |
+| 查执行 | `GET /pipelines/{id}` | 首次常 404，重试 200 |
+| 列执行 | `GET /applications/{app}/pipelines?expand=false` | 200 |
+
+注：`POST /orchestrate/{id}` 与 `POST /pipelines/{id}` 都不是触发端点（实测 404 / 405），
+    deck 实际用的是 `/pipelines/v2/{app}/{name}`。
+
+================================================================================
+四、Burp 在这里买得到什么、买不到什么
+================================================================================
+买得到：
+  - 精确构造 stage JSON（比 AngularJS 表单可靠）。
+  - **天然绕开 Deck 前端的坑**：`Edit as JSON` 是 Ace 编辑器（`fill` 无效且是插入不是替换）、
+    "Select Pipeline" 是 React-Select（JS click 不触发）。直接 POST JSON 这些问题全部不存在。
+  - 重放与观测。
+
+买不到（也不必要）：
+  - 不需要绕过任何客户端控制：无 CSRF token、无请求签名、无仅在 JS 层做的校验。
+    stage JSON 完全由服务端处理，真正干危险活的是 rosco。
+  - 所以 Burp 的角色是"构造与重放"，**不是"绕过防护"**。此漏洞不存在"前端绕过"这一环。
+
+真正需要别的方法的部分：
+  1. **鉴权**：本栈 auth 关闭（user=anonymous）。加固部署里 gate 要求有效 session /
+     `X-SPINNAKER-USER` 等凭据 —— 这不是 Burp 能绕的，属于另一个问题（gate 鉴权），
+     不属 F-01 范畴。F-01 的起点只需"能影响制品内容"，不需要 Spinnaker 身份。
+  2. **制品源可控性（漏洞的最小前提）**：这一步的工具是"一个 HTTP 源 / 一次 git push"，
+     我复现时就是 `python -m http.server` 加一个 evil.yaml。**与 Burp 无关。**
+  3. **触发依赖**：若受害者的流水线引用的制品源不是你能控制的，角色 A 不成立 ——
+     此时需要流水线定义权限（角色 B）或找到别的可控引用点。这是**测绘**工作，不是工具问题。
+
+一句话：**Burp 能覆盖"发起方"的全部操作，但覆盖不了这条漏洞的最小前提；
+而最小前提那一步根本不需要 HTTP 拦截工具。**

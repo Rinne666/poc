@@ -1,0 +1,83 @@
+# Detects an exposed, reachable HELMFILE bake path in rosco.
+#
+# SAFE — this is the exposure precondition for the RCE, not the RCE itself.
+#
+# The request supplies an empty `inputArtifacts` list. In
+# HelmfileTemplateUtils.buildBakeRecipe the emptiness check is the FIRST statement:
+#
+#     List<Artifact> inputArtifacts = request.getInputArtifacts();
+#     if (inputArtifacts == null || inputArtifacts.isEmpty()) {
+#       throw new IllegalArgumentException("At least one input artifact must be provided to bake");
+#     }
+#
+# It runs before any artifact is downloaded, before rejectHooksAndPostRenderers(), and
+# before helmfile is ever exec'd. No file is fetched, no YAML is parsed, no command runs,
+# on any version of rosco. Nothing is created, modified or left behind.
+#
+# WHY THIS TEMPLATE DOES NOT SEND A `hooks:` PAYLOAD
+# --------------------------------------------------
+# The obvious detection — POST a helmfile containing `hooks:` and see whether rosco
+# answers 400 (guarded) or 200 (vulnerable) — was deliberately rejected. On an UNPATCHED
+# rosco that request executes a command on the target, so the template would be an exploit
+# exactly when it matters most. A detection that is only safe because the target is already
+# fixed detects nothing.
+#
+# There is no read-only request that distinguishes guarded from unguarded, because the
+# guard's presence is only observable through the behaviour it suppresses. So this
+# template establishes the precondition and leaves the determination to the version:
+#
+#     rosco <= 2026.3.0   exposed + unguarded  => VULNERABLE
+#     rosco >= 2026.3.1   exposed + guarded    => fixed
+#
+# To resolve the version, read it from the deployment (image tag, Helm values, or
+# /status on the service). The demonstration itself is
+# spinnaker-rosco-helmfile-rce/poc/entry_hook_marker.py, which is --confirm-authorised
+# gated and is NOT a scanner.
+id: spinnaker-rosco-helmfile-bake-exposed
+info:
+  name: Spinnaker rosco - reachable HELMFILE bake path (exposure precondition for helmfile hooks RCE)
+  author: rinne666
+  severity: info
+  classification:
+    cwe-id: CWE-78
+  metadata:
+    max-request: 1
+    product: spinnaker-rosco
+    disclosure: reported-fixed
+  description: |
+    rosco implements a Bake (Manifest) stage with templateRenderer: HELMFILE by writing
+    the caller's input artifacts to a temp directory and running `helmfile template`
+    (HelmfileTemplateUtils.buildCommand). The helmfile content is caller-supplied input
+    and decides what executes.
+
+    On every released version through 2026.3.0 no guard was present, so `hooks:` in the
+    entry file executed as the rosco process. A guard was merged 2026-09-14 (#8015) and
+    shipped hardened in rosco-2026.3.1 (2026-09-24).
+
+    This template only confirms that the HELMFILE bake endpoint is reachable on the
+    target. It sends no helmfile and runs nothing. Treat a match as "check the rosco
+    version before concluding anything".
+
+http:
+  - method: POST
+    path:
+      - "{{BaseURL}}/api/v2/manifest/bake/HELMFILE"
+    headers:
+      Content-Type: application/json
+    body: |
+      {
+        "templateRenderer": "HELMFILE",
+        "outputName": "rosco-poc-probe",
+        "namespace": "default",
+        "inputArtifacts": []
+      }
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 400
+      - type: word
+        part: body
+        words:
+          - "At least one input artifact must be provided to bake"
+        condition: and

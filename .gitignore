@@ -5,9 +5,10 @@
 labdb/
 *.log
 *.log.*
-# lab residue — never committed
-labdb/
-*.log
-*.log.*
 __pycache__/
 *.pyc
+
+# ...but a captured .log under evidence/ is evidence, not lab residue. Some captures are
+# verbatim access logs and renaming them would make the record diverge from the bundle
+# submitted to the vendor. Undo the rule above for that one case.
+!*/evidence/**/*.log
