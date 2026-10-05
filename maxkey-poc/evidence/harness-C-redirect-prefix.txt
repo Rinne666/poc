@@ -1,0 +1,45 @@
+
+###########################################################################
+# Harness C - OAuth2 redirect_uri prefix matching (supports redirect finding)
+###########################################################################
+compiled OK -> harness-c/out
+---------------------------------------------------------------------------
+=========================================================================
+ Harness C - OAuth2 redirect_uri prefix matching semantics
+ supports : the OAuth2 redirect_uri prefix-matching finding
+=========================================================================
+
+--- SECTION 1: StringUtils.cleanPath semantics ---
+[INFO] cleanPath("/callback")       = "/callback"
+PASS  ASSERTION 1  cleanPath("/callbackXYZ").startsWith(cleanPath("/callback")) == true
+[INFO] cleanPath("/cb/../x")        = "/x"
+PASS  ASSERTION 2  cleanPath("/cb/../x") neutralises traversal to "/x"
+PASS  ASSERTION 3  cleanPath("/cb/../x") does NOT start with "/callback"
+
+--- SECTION 2: DefaultRedirectResolver.redirectMatches() semantics ---
+[INFO] registered redirect = https://app.example.com/callback
+[INFO]   match(https://app.example.com/callback             ) = true
+[INFO]   match(https://app.example.com/callbackXYZ          ) = true
+[INFO]   match(https://app.example.com/callback.evil.test/  ) = true
+[INFO]   match(https://app.example.com/callback/../admin    ) = false
+[INFO]   match(https://app.example.com/other                ) = false
+[INFO]   match(https://evil.test/callback                   ) = false
+PASS  ASSERTION 4  the exact registered URI matches
+PASS  ASSERTION 5  a SIBLING path sharing the string prefix also matches  <-- the finding
+PASS  ASSERTION 6  a host smuggled after the prefix also matches  <-- the finding
+PASS  ASSERTION 7  an unrelated path on the same host does NOT match
+PASS  ASSERTION 8  the same path on a DIFFERENT host does NOT match (host is still checked)
+PASS  ASSERTION 9  a traversal path is cleaned first, so it resolves to /admin and does NOT match
+
+--- SECTION 3: contrast with ExactMatchRedirectResolver ---
+PASS  ASSERTION 10 exact-match semantics REJECT the sibling path (String.equals)
+[INFO] ExactMatchRedirectResolver.redirectMatches() is `requestedRedirect.equals(redirectUri)`,
+[INFO] which rejects the same request that DefaultRedirectResolver accepts.
+[INFO] => the two shipped resolvers disagree on the same input; the permissive one is in use.
+
+-------------------------------------------------------------------------
+ checks run: 10, failures: 0
+ RESULT: PASS
+-------------------------------------------------------------------------
+---------------------------------------------------------------------------
+exit code: 0

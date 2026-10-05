@@ -18,6 +18,7 @@ project you are about to rely on:
 | `spinnaker-rosco-helmfile-rce` | **reported, fixed, credited**; CVE requested, not yet allocated | upgrade to rosco 2026.3.1 or later. ≤ 2026.3.0 is exposed |
 | `flowable-poc` | not yet reported to the vendor or any CNA | treat as live until Flowable publishes a fix |
 | `astron-agent-poc` | not yet reported to iFlytek or any CNA | treat as live; there is no fix to wait for |
+| `maxkey-poc` | **reported to the vendor** via GitHub private vulnerability reporting; no fix yet | treat as live; any instance from the shipped compose file may still hold the seeded admin credential |
 
 This repository is public. That was a deliberate choice by the maintainer of this repository, made
 to support a CNA submission. It has a consequence worth stating plainly rather than burying: for the
@@ -99,6 +100,12 @@ poc/
 │   ├── nuclei/                Nuclei detection templates
 │   ├── env/                   how to build and run the target, plus the victim-flow seed
 │   └── evidence/              session records backing every claim (redacted; see evidence/README.md)
+├── maxkey-poc/               dromara MaxKey IAM/SSO (OAuth2/OIDC, SAML 2.0, CAS, JWT, SCIM)
+│   ├── README.md              summary, affected versions, disclosure state, inertness
+│   ├── cve/                   CVE JSON 5.1 records, ready for CNA submission
+│   ├── poc/                   Java harnesses + integration reproduction scripts
+│   ├── env/                   two-tenant seed SQL for the cross-tenant test
+│   └── evidence/              verbatim captured output + RESULTS.md
 └── _template/                 scaffold for a new project
 ```
 

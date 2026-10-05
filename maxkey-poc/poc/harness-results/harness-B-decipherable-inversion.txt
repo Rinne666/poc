@@ -1,0 +1,56 @@
+
+###########################################################################
+# Harness B - decipherable column key inversion (finding 5)
+###########################################################################
+compiled OK -> harness-b/out
+---------------------------------------------------------------------------
+=========================================================================
+ Harness B - decipherable column key inversion
+ finding  : maxkey-20261002-decipherable-selfkeyed-desede
+=========================================================================
+
+[INFO] public constant from ReciprocalUtils.java:49 = "l0JqT7NvIzP9oRaG4kFc1QmD_bWu3x8E5yS2h6"
+[INFO] dummy password used                      = "DummyPassw0rd!"
+
+--- SECTION 1: encode/decoder round trip (MaxKey's own code) ---
+[INFO] stored column value = $2a$10$D7CdwHuJHX//9kKXTWKUze2670ff66bcbb660319bcced530cfc408842548d3b9cd5d68ab12c00ca3be65effc0a4a791afad5a9
+[INFO]   length            = 109  (salt 29 chars + hex ciphertext)
+[INFO] decoder(stored)     = "DummyPassw0rd!"
+PASS  ASSERTION 1  encode() then decoder() recovers the plaintext
+PASS  ASSERTION 2  the stored value does NOT contain the plaintext verbatim
+
+--- SECTION 2: key derivation from the stored value alone ---
+[INFO] salt (first 29 chars)              = $2a$10$D7CdwHuJHX//9kKXTWKUze
+[INFO] salt.substring(7) (embedded key)   = D7CdwHuJHX//9kKXTWKUze
+[INFO] publicKey[0..2]                    = "l0"
+[INFO] derived 3DES key (24 bytes)        = D7CdwHuJHX//9kKXTWKUzel0
+PASS  ASSERTION 3  derived key is exactly 24 bytes (DESede requirement)
+PASS  ASSERTION 4  derived key == salt[7..29] + publicConstant[0..2]
+
+--- SECTION 3: INDEPENDENT decryption (raw javax.crypto, no MaxKey code) ---
+[INFO] inputs available to an attacker:
+[INFO]   (a) the DB column value  : $2a$10$D7CdwHuJHX//9kKXTWKUze2670ff66bcbb660319bcced530cfc408842548d3b9cd5d68ab12c00ca3be65effc0a4a791afad5a9
+[INFO]   (b) the public constant  : "l0JqT7NvIzP9oRaG4kFc1QmD_bWu3x8E5yS2h6"
+[INFO] recovered plaintext     = "DummyPassw0rd!"
+PASS  ASSERTION 5  an independent 3DES decryptor recovers the plaintext from the column value + public constant
+
+--- SECTION 4: random salt, both stored values decrypt ---
+[INFO] stored1 = $2a$10$D7CdwHuJHX//9kKXTWKUze2670ff66bcbb660319bcced530cfc408842548d3b9cd5d68ab12c00ca3be65effc0a4a791afad5a9
+[INFO] stored2 = $2a$10$z8PhCHptcBIB7DGHtCZXBe551a431a9d24b101024a1c48ecdf2b43e73f2fea7aaa9cc712c0f378892df04f79f71ec73baec70d
+[INFO] stored3 = $2a$10$1T/JRAAT3gH9m7zx87x/Yucb34d03cea6c23217433a8c053333c4f0c3b9d926f386034a6d3e7ac9235a8fdf9869dc33a6abfc6
+PASS  ASSERTION 6  three encode() calls on the same plaintext yield three different stored values (random salt)
+PASS  ASSERTION 7  all three decode correctly (MaxKey decoder)
+PASS  ASSERTION 8  all three decode correctly (independent decryptor)
+
+--- SECTION 5: what is and is not required to decrypt ---
+[INFO] decrypt with a wrong 2-char guess -> "<decryption failed: BadPaddingException>"
+PASS  ASSERTION 9  a wrong trailing 2 chars yields garbage, so the constant is the only unknown
+[INFO] the trailing 2 chars are the FIRST 2 CHARACTERS of a constant that is
+[INFO] published in the open-source repository, so they are not a secret at all.
+
+-------------------------------------------------------------------------
+ checks run: 9, failures: 0
+ RESULT: PASS
+-------------------------------------------------------------------------
+---------------------------------------------------------------------------
+exit code: 0
