@@ -1,0 +1,39 @@
+dn: ou=产品部,dc=maxkey,dc=io
+objectClass: organizationalUnit
+ou: 产品部
+
+dn: ou=云身份安全部,ou=产品部,dc=maxkey,dc=io
+objectClass: organizationalUnit
+ou: 云身份安全部
+
+dn: ou=项目部,dc=maxkey,dc=io
+objectClass: organizationalUnit
+ou: 项目部
+
+dn: cn=Zhang San,ou=云身份安全部,ou=产品部,dc=maxkey,dc=io
+objectClass: inetOrgPerson
+objectClass: person
+objectClass: organizationalPerson
+objectClass: top
+uid: zhangsan
+cn: Zhang San
+sn: San
+givenName: Zhang
+mail: zhangsan@maxkey.io
+mobile: 13800000001
+title: Engineer
+employeeNumber: E0001
+o: MaxKey
+
+dn: cn=Li Si,ou=项目部,dc=maxkey,dc=io
+objectClass: inetOrgPerson
+objectClass: person
+objectClass: organizationalPerson
+objectClass: top
+uid: lisi
+cn: Li Si
+sn: Si
+givenName: Li
+mail: lisi@maxkey.io
+employeeNumber: E0002
+o: MaxKey
