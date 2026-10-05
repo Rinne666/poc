@@ -16,22 +16,45 @@ initially failed, that is recorded rather than hidden.
 
 ## Environment constraints that shaped this pack
 
-* The MaxKey application **cannot be run here**. It is not buildable in this
-  environment: no `~/.gradle`, `~/.m2/repository/org/dromara` absent, and no
-  embedded database in the dependency set. No attempt was made to work around
-  this.
-* **No network access** was used. No gradle, maven or docker was run, and
-  nothing was installed.
+* The full MaxKey application **is not run here**. It is not buildable in this
+  environment: no `~/.gradle`, and the application needs a packaged frontend
+  plus a running Spring context. Harnesses A–C and D therefore drive the
+  product's **own compiled classes** rather than the packaged application.
+* **Network access was used for harness D only**, to fetch build-time
+  dependencies from Maven Central (notably
+  `org.dromara.mybatis-jpa-extra:3.4.6`, which was believed unavailable
+  earlier in the audit — that belief was wrong and is corrected below).
+  Harnesses A–C need no network: their jars come from the local `~/.m2`.
+* **Docker was used for harness D only**, to run two **local** containers: a
+  throwaway `mysql:8.0` loaded with MaxKey's own `maxkey.sql`, and a throwaway
+  `osixia/openldap:1.5.0` holding two synthetic employees. Both are removed by
+  the script on exit. No third-party or production system was contacted, and no
+  real MaxKey deployment was targeted at any point.
 * The MaxKey checkout was **never modified**. `git status --porcelain` was
-  empty at the end of the work. Sources were copied *out* into `harness-lib/`
-  and verified byte-identical by SHA-1.
+  empty at the end of the work. Harness D compiles the project's classes
+  **in place, read-only**, writing only to `harness-d/classes*`; harness A–C
+  use sources copied *out* into `harness-lib/`, verified byte-identical by
+  SHA-1.
 * **The JVMs ran unsandboxed.** `sandbox-exec` cannot confine a JVM in this
   environment — it aborts with `SIGABRT`. No OS-level isolation was applied to
-  any harness. The harnesses perform only string comparisons and local crypto
-  on dummy values, but no sandbox claim is made.
-* The four `repro-*.sh` scripts and the seed SQL were **never executed**.
-  Their safety guards, syntax and control flow *were* exercised, against a
-  local mock server on `127.0.0.1` (see "Script validation" below).
+  any harness. The harnesses perform only string comparisons, local crypto and
+  database writes against their own throwaway containers, but no sandbox claim
+  is made.
+* The `repro-*.sh` scripts and the seed SQL were **never executed against a
+  real MaxKey instance**. Their safety guards, syntax and control flow *were*
+  exercised, against a local mock server on `127.0.0.1` (see "Script
+  validation" below).
+
+### Correction: `mybatis-jpa-extra` was available
+
+The audit originally recorded that `org.dromara.mybatis-jpa-extra` was absent
+from the local Maven cache and that this blocked compiling MaxKey's real
+classes. The artifact is in fact published on Maven Central
+(`mybatis-jpa-extra:3.4.6`); the earlier 404s came from probing wrong version
+numbers. Once downloaded, MaxKey's entity, synchroniser, persistence and
+authentication classes all compiled cleanly, which is what made harness D
+possible. Harness D's result therefore rests on the product's own compiled code
+rather than on a reimplementation.
 
 ---
 
@@ -42,8 +65,12 @@ initially failed, that is recorded rather than hidden.
 | A — DelegatingPasswordEncoder prefix semantics | 8 | 0 | 0 | `harness-results/harness-A-delegating-password-encoder.txt` |
 | B — decipherable key inversion | 9 | 0 | 0 | `harness-results/harness-B-decipherable-inversion.txt` |
 | C — redirect_uri prefix matching | 10 | 0 | 0 | `harness-results/harness-C-redirect-prefix.txt` |
+| D — synchroniser-assigned local password (2 parts) | 8 + 8 | 0 | 0 | `harness-results/harness-D-sync-default-password.txt` |
 
-Reproduce with `./run-harnesses.sh` (no network, no running MaxKey needed).
+Reproduce A–C with `./run-harnesses.sh` (no network, no running MaxKey
+needed). Reproduce D with `harness-d/run-harness-d.sh` (needs Docker and
+network on first run to fetch dependencies; starts and removes its own local
+MySQL and OpenLDAP containers; needs no MaxKey instance).
 
 ### Two failures that occurred and were fixed
 
@@ -159,33 +186,93 @@ SELECT ID, USERNAME, PASSWORD, STATUS, ISLOCKED, INSTID
 
 ### RUNTIME-PROVEN
 
-**Nothing.** This finding has no runtime evidence from this pack. The
-derivation is a one-line string concatenation, so there is no cryptography to
-harness; the interesting part is purely the end-to-end behaviour.
+**Executed end to end by harness D.** Output:
+`harness-results/harness-D-sync-default-password.txt` (2 parts, 8/8 PASS
+each). Reproduce with `harness-d/run-harness-d.sh`.
 
-### SOURCE-CONFIRMED (not executed)
+Harness D starts a throwaway MySQL loaded with MaxKey's **own** `maxkey.sql`
+(44 tables) and a throwaway OpenLDAP holding two synthetic employees, then
+compiles the product's **own** classes at commit `3e5662b` — 108 classes,
+including `LdapUsersService`, `UserInfoServiceImpl`, `LoginServiceImpl` and
+`JdbcAuthenticationRealm` — and drives them.
 
-* `maxkey-entity/src/main/java/org/dromara/maxkey/entity/idm/UserInfo.java:53`
-  `public static final String DEFAULT_PASSWORD_SUFFIX = "MaxKey@888";`
-* Five synchronisers set `username + DEFAULT_PASSWORD_SUFFIX` unconditionally:
-  * `maxkey-synchronizers/maxkey-synchronizer-ldap/.../LdapUsersService.java:90`
-  * `maxkey-synchronizers/maxkey-synchronizer-activedirectory/.../ActiveDirectoryUsersService.java:98`
-  * `maxkey-synchronizers/maxkey-synchronizer-feishu/.../FeishuUsersService.java:70`
-  * `maxkey-synchronizers/maxkey-synchronizer-workweixin/.../WorkweixinUsersService.java:147`
-  * `maxkey-synchronizers/maxkey-synchronizer-dingtalk/.../DingtalkUsersService.java:80`
-* The value **is** bcrypt-hashed before storage, so the stored column is not
-  plaintext. The defect is the *derivable default*, not the storage. Any report
-  that claims plaintext storage here would be wrong.
-* `TrustedAuthenticationProvider.java:64` has its `passwordPolicyValid` call
-  **commented out** — relevant to finding 4, noted here for completeness.
+Part 1, a newly synced account:
 
-### NOT PROVEN — and what closes it
+```
+[sync] new local row for zhangsan (hashed by the product's UserInfoServiceImpl.insert())
+[sync] new local row for lisi    (hashed by the product's UserInfoServiceImpl.insert())
 
-That the derived password is accepted for a genuinely synced account, and that
-no first-login rotation intervenes. Nothing in the source imposes one, but
-absence of code is not evidence of behaviour.
+PASS  bcrypt hash in the DB equals bcrypt("zhangsanMaxKey@888")
+        -- the derived password IS the stored password
+PASS  decipherable column decodes back to the same predictable string
+        -- decoded = "zhangsanMaxKey@888"
+PASS  LoginServiceImpl.find() returns the synchronised account
+        -- loaded status=1 isLocked=0
+PASS  account is ACTIVE (ConstsStatus.ACTIVE == 1)
+PASS  account is not locked
+PASS  bad-password count does not block the attempt
+PASS  JdbcAuthenticationRealm.passwordMatches() accepts the derived password
+        -- passwordMatches() returned true
+PASS  a wrong password is still rejected (control)
+        -- BadCredentialsException: login.error.password
+RESULT: 8 passed, 0 failed
+```
 
-To close the gap: point the script at a real synced dummy account.
+What this closes, and what it does not:
+
+* The synchroniser really does run end to end against a live directory, and
+  `UserInfoServiceImpl.passwordEncoder()` really does turn
+  `username + "MaxKey@888"` into the stored bcrypt hash. No reimplementation:
+  those are the product's compiled classes.
+* `decipherable` stores the same string, recoverable with MaxKey's own
+  `PasswordReciprocal` — so the predictable value is not merely derivable, it
+  is *stored* reversibly.
+* **No first-login rotation intervenes.** The account is `ACTIVE`, not locked,
+  bad-password count is 0, and `passwordMatches()` accepts the derived value.
+  This was the specific open question, and it is now answered by execution
+  rather than by absence of code.
+* The **last assertion is a control**: a wrong password is still rejected, so
+  the acceptance above is a real match and not a permissive harness.
+
+Part 2 bounds the blast radius, and is equally important:
+
+```
+PASS  on re-sync, an already-existing account keeps its own password
+        (update() does not re-apply the derived default)
+        -- scope is NEWLY synced accounts
+PASS  re-sync mode: the derived password is correctly REJECTED now
+        -- rejected with BadCredentialsException
+RESULT: 8 passed, 0 failed
+```
+
+An account that already has a user-chosen password is **not** reset by a
+subsequent sync, because `UserInfoServiceImpl.update()` calls
+`clearPassword()`. So the exposure is confined to accounts that have never
+changed their MaxKey-local password — in practice, **every account a
+synchroniser has ever created**, since the derived password is what the
+synchroniser hands them.
+
+### Scope of the harness
+
+Real: the LDAP search and user build, `UserInfo.DEFAULT_PASSWORD_SUFFIX`,
+`passwordEncoder()`, `PasswordReciprocal`, the `DelegatingPasswordEncoder`
+built by `ApplicationAutoConfiguration`, `LoginServiceImpl.find()`,
+`JdbcAuthenticationRealm.passwordMatches()`, the schema, the seed data.
+Replaced with plumbing: the MyBatis mapper layer (plain JDBC against the same
+`mxk_userinfo` table), `OrganizationsService` (a JDBC read of the real
+`mxk_organizations`), and the sync/audit bookkeeping services (no-op proxies
+that never touch the password). The Spring context is not started. Full detail
+in `harness-d/README.md`.
+
+### NOT PROVEN
+
+* That any particular deployment has a synchroniser enabled. This is a
+  configuration-dependent issue; the finding describes what the code does
+  when one is configured.
+* End-to-end login through the packaged application (HTTP `/signin` → JWT).
+  Harness D calls the same `passwordMatches()` the provider calls, but does
+  not boot the Spring application. `repro-sync-default-password.sh` closes
+  this against a real instance you control:
 
 ```sh
 POC_I_HAVE_AUTHORIZATION=1 POC_TARGET_HOST=http://127.0.0.1:8080 \
@@ -199,6 +286,9 @@ Distinguish "never synced" from "synced then rotated" with:
 SELECT USERNAME, LEFT(PASSWORD,7), PASSWORDSETTYPE, PASSWORDLASTSETTIME
   FROM mxk_userinfo WHERE USERNAME = '<user>';
 ```
+
+A `PASSWORDSETTYPE` of 0 with an old `PASSWORDLASTSETTIME` is the fingerprint
+of an account still sitting on the synchroniser's default.
 
 ---
 
@@ -486,7 +576,7 @@ The mock server is retained at
 | Finding | RUNTIME-PROVEN | SOURCE-CONFIRMED | Needs a live instance |
 |---|---|---|---|
 | 1 — seeded admin default credential | **Encoder semantics** (8/8) | Seed row, bean wiring, role membership | The login itself |
-| 2 — sync default password | none | Constant + 5 call sites | A synced account's response |
+| 2 — sync default password | **harness D (16/16)** | Constant + 5 call sites | A synced account's live login response |
 | 3 — REST cross-tenant, no instId | none | Unscoped mapper + controller + schema | Two-tenant reachability |
 | 4 — OAuth2 password grant, no lockout | none | Missing policy call + SignPrincipal flags | N attempts + counter state |
 | 5 — decipherable self-keyed 3DES | **Key inversion** (9/9, independent) | Constant, write path, read path | A real row in a real DB |

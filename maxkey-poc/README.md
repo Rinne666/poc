@@ -68,7 +68,27 @@ created through the application are hashed normally.
 Every synchroniser sets `password = username + "MaxKey@888"`. The value **is** correctly bcrypt-hashed;
 the weakness is that the plaintext is a pure function of two public values. The account is created
 active, local login does not distinguish synchronised accounts, and re-synchronisation calls
-`clearPassword()` so the derived hash persists indefinitely. There is no enforced first-login rotation.
+`clearPassword()` so the derived hash persists indefinitely.
+
+**This is the one finding now demonstrated by execution (harness D, 16/16 assertions).** It is
+reproduced by running the product's *own* compiled classes — `LdapUsersService`,
+`UserInfoServiceImpl`, `LoginServiceImpl`, `JdbcAuthenticationRealm`, 108 classes at commit `3e5662b`
+— against a throwaway MySQL loaded with MaxKey's own `maxkey.sql` and a throwaway OpenLDAP holding
+synthetic employees:
+
+- `sync()` really provisions the account from a live directory.
+- The stored hash is exactly `bcrypt(username + "MaxKey@888")`; `passwordEncoder.matches()` returns true.
+- The `decipherable` column decodes, via MaxKey's own `PasswordReciprocal`, back to that same
+  predictable string — the value is not only derivable, it is stored reversibly.
+- The account comes back `ACTIVE`, unlocked, `badPasswordCount=0`, and **`passwordMatches()` accepts
+  the derived password**. A wrong-password control is still rejected, so this is a real match.
+- **No first-login rotation intervenes.** The `INITIAL_PASSWORD` marker is set, but the token is
+  still issued and the marker only reaches the login response.
+
+Part 2 of the same harness bounds the impact: an account whose password was already changed keeps
+it across re-synchronisation, because `update()` calls `clearPassword()`. The exposure is therefore
+confined to accounts that have never changed their MaxKey-local password — in practice, **every
+account a synchroniser has ever created**.
 
 ### V4 — OAuth2 password grant bypasses lockout
 
@@ -92,16 +112,28 @@ Reproduced locally (27/27 assertions, `evidence/harness-results/`):
   recovers a plaintext password from the `decipherable` column value plus the public constant.
 - **Harness C** — the prefix-matching semantics: a sibling path sharing the prefix is accepted, while
   traversal and a foreign host are both rejected. Covers V1.
+- **Harness D** — the synchroniser-to-login chain, end to end against real MySQL and real OpenLDAP,
+  driving MaxKey's own compiled classes. Covers V3. Reproduce with `poc/harness-d/run-harness-d.sh`
+  (needs Docker and network on first run; starts and removes its own containers).
 
-**Not reproduced.** V1, V3 and V4 are source-traced only; no finding is demonstrated end-to-end
-against a running MaxKey instance. The `repro-*.sh` scripts exist to close that gap and require a
-disposable instance.
+**Not reproduced at the HTTP layer.** No finding is demonstrated through a booted MaxKey
+application — the packaged app was never started, so `/signin` and JWT issuance were not exercised.
+V1, V2 and V4 remain source-traced; V3 is runtime-proven one layer below HTTP, in the product's own
+synchroniser, persistence and authentication classes. The `repro-*.sh` scripts exist to close the
+HTTP gap and require a disposable instance.
 
 > **Execution context.** These JVMs ran **unsandboxed**. `sandbox-exec` cannot confine a JVM in this
-> environment (it aborts with SIGABRT), so no OS-level isolation was applied. The harnesses only perform
-> local string comparison and local crypto, but the absence of a sandbox is stated here rather than
-> implied. The application itself cannot be built offline in this environment: there is no Gradle cache
-> and `org.dromara.mybatis-jpa-extra` is absent from every local repository.
+> environment (it aborts with SIGABRT), so no OS-level isolation was applied to any harness, and the
+> absence of a sandbox is stated here rather than implied.
+>
+> **Correction to an earlier claim in this bundle.** A previous version of this README said the
+> application "cannot be built offline: there is no Gradle cache and `org.dromara.mybatis-jpa-extra` is
+> absent from every local repository", and treated that as the reason V3 had no runtime evidence. That
+> was wrong. `mybatis-jpa-extra:3.4.6` **is** published on Maven Central — the earlier 404s came from
+> probing the wrong version numbers. Once fetched, MaxKey's own classes compiled and ran, which is
+> what produced harness D. The packaged application is still not booted here, so the HTTP layer remains
+> unexercised, and the tenant-isolation findings that depend on `@PartitionKey` SQL generation remain
+> unverified.
 
 ## Inertness
 
