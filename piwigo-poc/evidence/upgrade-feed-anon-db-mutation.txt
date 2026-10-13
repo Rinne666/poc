@@ -1,0 +1,6 @@
+--- response body ---
+<pre>0 upgrades to apply</pre>
+--- summary ---
+HTTP: 200
+pending: 0
+include markers: <none>

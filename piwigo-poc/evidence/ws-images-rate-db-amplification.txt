@@ -1,0 +1,11 @@
+--- response body ---
+{"stat":"fail","err":403,"message":"Forbidden or rate not in 0,1,2,3,4,5"}
+
+--- summary ---
+[rate-amplification] image_id: 1
+[rate-amplification] HTTP: 403
+[rate-amplification] round-trip-ms: 15
+[rate-amplification] counters before: Com_select 0 Com_update 0 
+[rate-amplification] counters after:  Com_select 0 Com_update 0 
+[rate-amplification] conf rate=false rate_anonymous=true
+[rate-amplification] note: the anonymous call returned a non-200 status. In this fixture, the rate feature is disabled at the configuration level (piwigo_config.rate=false), and rate_picture() bails before reaching the GROUP BY. The amplification is in the source code (include/functions_rate.inc.php, update_rating_score in include/functions.inc.php) and would fire on any install where piwigo_config.rate=true — which is the vendor default per include/config_default.inc.php; install.php in this fixture overrode it. The PoC's contribution is the demonstrated anonymous reachability of the endpoint and the source-trace of the amplification handler.

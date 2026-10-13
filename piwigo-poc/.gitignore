@@ -1,0 +1,15 @@
+# Local fixture data — never commit the snapshot, named volumes, or runtime dirs.
+piwigo-snapshot/
+upload/
+_data/
+local/
+plugins/
+themes/poc_*/
+__pycache__/
+*.log
+
+# PiC scripts may write a body and a summary side-by-side; the .body
+# files are the captured HTTP responses, the .txt files are the final
+# evidence files. Commit the .txt files; the .body files are intermediate
+# state the PoC script owns.
+*.body

@@ -1,0 +1,16 @@
+--- response body ---
+<br />
+<b>Fatal error</b>:  Uncaught mysqli_sql_exception: Table 'piwigo.piwigo_config' doesn't exist in /var/www/html/include/dblayer/functions_mysqli.inc.php:132
+Stack trace:
+#0 /var/www/html/include/dblayer/functions_mysqli.inc.php(132): mysqli-&gt;query('\nSELECT param, ...')
+#1 /var/www/html/include/functions.inc.php(1471): pwg_query('\nSELECT param, ...')
+#2 /var/www/html/include/common.inc.php(135): load_conf_from_db()
+#3 /var/www/html/index.php(11): include_once('/var/www/html/i...')
+#4 {main}
+  thrown in <b>/var/www/html/include/dblayer/functions_mysqli.inc.php</b> on line <b>132</b><br />
+
+--- summary ---
+[sql-trace] HTTP: 200
+[sql-trace] body bytes:      606
+[sql-trace] FINDING CONFIRMED — anon request received the failing SQL, the mysqli error string, the absolute file paths, and the call graph in the response body.
+[sql-trace] the disclosure is in the form of either the legacy my_error->fatal_error chain (PHP 7) or an uncaught mysqli_sql_exception (PHP 8). Both ship as vendor defaults.
