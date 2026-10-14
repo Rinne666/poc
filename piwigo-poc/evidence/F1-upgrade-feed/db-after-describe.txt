@@ -1,0 +1,5 @@
+Field	Type	Null	Key	Default	Extra
+format_id	int(11) unsigned	NO	PRI	NULL	auto_increment
+image_id	mediumint(8) unsigned	NO		0	
+ext	varchar(255)	NO		NULL	
+filesize	mediumint(9) unsigned	YES		NULL	

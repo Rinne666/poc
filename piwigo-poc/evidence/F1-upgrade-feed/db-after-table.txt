@@ -1,0 +1,9 @@
+*************************** 1. row ***************************
+       Table: piwigo_image_format
+Create Table: CREATE TABLE `piwigo_image_format` (
+  `format_id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `image_id` mediumint(8) unsigned NOT NULL DEFAULT 0,
+  `ext` varchar(255) NOT NULL,
+  `filesize` mediumint(9) unsigned DEFAULT NULL,
+  PRIMARY KEY (`format_id`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci

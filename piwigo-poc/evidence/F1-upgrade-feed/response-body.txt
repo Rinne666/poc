@@ -1,4 +1,6 @@
 <pre>1 upgrades to apply
 
-=== upgrade 180
+=== upgrade 145
+
+add image formats table
 </pre>
