@@ -1,0 +1,2 @@
+id	applied	description
+100	2026-10-12 09:37:23	add high_width and high_height fields into IMAGES_TABLE

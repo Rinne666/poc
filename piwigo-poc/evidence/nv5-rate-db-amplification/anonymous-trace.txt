@@ -1,0 +1,30 @@
+* Host localhost:8089 was resolved.
+* IPv6: ::1
+* IPv4: 127.0.0.1
+*   Trying [::1]:8089...
+* Connected to localhost (::1) port 8089
+> POST /ws.php?method=pwg.images.rate HTTP/1.1
+> Host: localhost:8089
+> User-Agent: curl/8.7.1
+> Accept: */*
+> Cookie: anonymous_rater=10.0
+> Content-Length: 17
+> Content-Type: application/x-www-form-urlencoded
+> 
+} [17 bytes data]
+* upload completely sent off: 17 bytes
+< HTTP/1.1 200 OK
+< Date: Wed, 14 Oct 2026 00:03:56 GMT
+< Server: Apache/2.4.68 (Debian)
+< X-Powered-By: PHP/8.2.34
+< Set-Cookie: pwg_id=eb812bfab7a746fbaadb9b21d8609f8e; path=/; HttpOnly
+< Expires: Thu, 19 Nov 1981 08:52:00 GMT
+< Cache-Control: no-store, no-cache, must-revalidate
+< Pragma: no-cache
+< Set-Cookie: pwg_anonymous_rater=172.23.0; expires=Tue, 14 Oct 2036 00:03:56 GMT; Max-Age=315619200; path=/
+< Vary: Accept-Encoding
+< Content-Length: 119
+< Content-Type: text/xml; charset=utf-8
+< 
+{ [119 bytes data]
+* Connection #0 to host localhost left intact

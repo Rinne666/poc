@@ -1,0 +1,25 @@
+* Host localhost:8089 was resolved.
+* IPv6: ::1
+* IPv4: 127.0.0.1
+*   Trying [::1]:8089...
+* Connected to localhost (::1) port 8089
+> GET /picture.php?/1/category/1&action=add_to_favorites HTTP/1.1
+> Host: localhost:8089
+> User-Agent: curl/8.7.1
+> Accept: */*
+> Cookie: pwg_id=86a459c9679a539f6d574de071b5460d
+> 
+* Request completely sent off
+< HTTP/1.1 200 OK
+< Date: Wed, 14 Oct 2026 00:01:54 GMT
+< Server: Apache/2.4.68 (Debian)
+< X-Powered-By: PHP/8.2.34
+< Expires: Thu, 19 Nov 1981 08:52:00 GMT
+< Cache-Control: no-store, no-cache, must-revalidate
+< Pragma: no-cache
+< Vary: Accept-Encoding
+< Content-Length: 456
+< Content-Type: text/html; charset=UTF-8
+< 
+{ [456 bytes data]
+* Connection #0 to host localhost left intact

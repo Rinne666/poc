@@ -13,3 +13,4 @@ __pycache__/
 # evidence files. Commit the .txt files; the .body files are intermediate
 # state the PoC script owns.
 *.body
+*.jar

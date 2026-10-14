@@ -1,0 +1,3 @@
+t	n
+favorites	0
+caddie	0
