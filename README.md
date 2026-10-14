@@ -33,9 +33,7 @@ The sequence that would normally precede publication:
 3. Obtain the CVE ID and replace the `CVE-PENDING-*` identifiers.
 4. Update the project directory with the new identifiers and the vendor's response.
 
-Steps 1–3 have not been completed. The records are `state: RESERVED` and the identifiers are
-`CVE-PENDING-*` precisely because no number has been allocated yet — do not read those files as
-assigned CVE records.
+Steps 1–3 have not been completed. Each project's `submission.json` records its actual disclosure state, and the optional `cve/*.cve.json` directory now contains only records whose CVE IDs were genuinely assigned by a CNA — pre-allocation drafts are kept out of the public repository. See the project README and `submission.json` for the per-project status.
 
 **A note on why this is still publishable.** VulDB's requirement is a *publicly verifiable* proof of
 concept, which can be satisfied by an accessible test instance or by screenshots of a local
@@ -132,13 +130,16 @@ reallocated or rejected is worse than no ID at all.
 
 | Path | Must contain |
 |---|---|
-| `README.md` | summary, affected versions, CWE, CVSS vector and score, disclosure state, links |
-| `report.md` | exact environment, exact steps, expected output, what was *not* demonstrated |
+| `submission.json` | **canonical structured metadata** — product, exact test version/commit, disclosure state, finding IDs, proof level, prerequisites, observed impact, CVE status, evidence paths |
+| `README.md` | human-readable index derived from `submission.json`; affected versions, CWE, CVSS vector and score, disclosure state, links |
+| `report.md` | exact environment, exact steps, positive and negative controls, expected/actual results, what was *not* demonstrated |
 | `poc/` | runnable, non-interactive, exits non-zero on failure, refuses to run without explicit authorisation |
-| `cve/` | CVE JSON 5.1, `exploitability: PROOF_OF_CONCEPT`, `state: RESERVED` until published |
+| `cve/` | **optional** — only actually CNA-assigned, official-schema-validated CVE records; no self-issued `state: RESERVED` or `CVE-PENDING-*` records |
 | `nuclei/` | a template that **detects** the condition, never one that exploits it |
 | `env/` | reproducible build instructions for the target, from a clean checkout |
 | `evidence/` | unedited captured output — not paraphrased, not curated |
+
+> The `submission.json` row is the new normative entry. The `cve/` row above replaces the prior rule that required `exploitability: PROOF_OF_CONCEPT` and `state: RESERVED`. Per the policy addendum below, `CVE-PENDING-*` is a human-readable internal label only and is not a valid CVE ID; `submission.json` is the canonical place for unassigned drafts.
 
 ## What belongs in this repository
 
