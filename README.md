@@ -149,3 +149,65 @@ application deployment.
 The second clause is a real filter, not a formality. "The administrator turned on a feature that is
 documented as unsafe" and "any ordinary API caller can reach a sensitive sink" are different classes
 of defect, reported to different audiences, and only the second belongs here.
+
+---
+
+## AI contribution policy and CNA submission gates
+
+> **Normative repository policy.** This section applies to humans and coding agents. Before changing any PoC, read `AGENTS.md`, `CONTRIBUTING.md`, the relevant project report, and this policy. If they disagree, stop and request human review; do not silently relax a requirement. This policy is a repository quality gate, **not** a claim that a CNA must accept every passing submission.
+
+### Evidence before claims
+
+A submitted finding is a security vulnerability candidate, not an assigned CVE. The researcher must demonstrate an actual violation of an expected security boundary, not merely the presence of a dangerous API, HTTP 200 response, stack trace, or scanner alert.
+
+Every finding MUST have a version-pinned target, stated attacker privileges and deployment prerequisites, one non-destructive positive test, one relevant negative/control test (or a justified exception), captured machine output, source location, and a bounded observed security impact. Every untested inference MUST appear under `Not demonstrated`. Never describe a code-level harness as full HTTP end-to-end exploitation; never claim RCE, unauthenticated access, impact on all versions, or CVSS impacts that were not established. Do not invent vendor acknowledgements, mitigations, releases, CWE/CVSS evidence, test runs, or external links.
+
+Classify each finding using one of:
+
+- `RUNTIME_VERIFIED`: tested against the running target, with an observable security impact and appropriate control.
+- `COMPONENT_VERIFIED`: tested with real target classes/components, but the complete application/HTTP boundary is untested.
+- `SOURCE_ONLY`: code path is identified, but its security impact is not observed at runtime.
+- `HYPOTHESIS`: a potential issue remains unverified.
+
+Use the most conservative applicable class. `SOURCE_ONLY` and `HYPOTHESIS` findings MUST NOT be labeled `CNA_READY` in this repository; this is our stricter publishing standard, not an official CNA eligibility rule. Likewise, `COMPONENT_VERIFIED` needs human review and a clear description of untested layers before claiming readiness.
+
+### Public disclosure and authorization are distinct gates
+
+Only run PoCs against lab systems the operator owns or is expressly authorized to test. A `--confirm-authorised` flag is an operator acknowledgement, **not proof of permission**. Default targets must be loopback or private disposable test fixtures; avoid mass scanning, third-party endpoints, exfiltration, reverse shells, persistence, destructive changes, or unlimited requests. Clean up only fixtures created by the PoC, and fail with a nonzero exit code if the claimed observation is absent. A detection template is not evidence of exploitability.
+
+This is a public repository: DO NOT open a public PR with previously undisclosed exploit material by default. Record vendor/CNA contact attempts, coordination state, and an explicit human publication approval in each project's `submission.json`. When those fields are incomplete, use a private reporting channel and do not push sensitive PoC details here. No universal 90-day deadline is assumed; coordinate according to the actual parties and disclosure agreement. A release decision always requires maintainer approval.
+
+### Submission format and single source of truth
+
+For every new or materially updated project, use `_template/project-poc/` and include:
+
+| Path | Purpose |
+|---|---|
+| `submission.json` | Canonical metadata: product, exact test version/commit, disclosure state, finding IDs, proof level, prerequisites, observed impact, CVE status, evidence paths |
+| `README.md` | Human-readable index and disclosure state, derived from `submission.json` |
+| `report.md` | Step-by-step reproducibility, exact commands, positive/negative controls, expected/actual results, limitations |
+| `poc/` | Minimal, bounded, authorized reproduction that signals success/failure correctly |
+| `evidence/` | Raw sanitized captures with provenance (date, commands, target, exit codes); redactions must be labeled |
+| `env/` | Reproducible isolated lab setup and teardown |
+| `cve/` | Optional: **only** actual CNA-assigned, schema-valid CVE records; no self-issued IDs |
+| `nuclei/` | Optional: safe detection-only templates; never claim they prove exploitation |
+
+The finding set in `submission.json`, `README.md`, and `report.md` MUST agree. All listed PoC/evidence paths must exist. Include regression findings that failed testing only when clearly identified as rejected hypotheses, not as confirmed vulnerabilities. Claims, scope, CVSS and affected versions must not exceed observed evidence.
+
+### CVE IDs, schema, and CNA workflow
+
+`CVE-PENDING-*` MAY appear only as a human-readable internal tracking label outside official CVE record fields. It is not a valid CVE ID. Do not impersonate a CNA by setting `assignerShortName` to the researcher's account or by adding `state: RESERVED` to an invented published record. Until a real ID and authorized CNA metadata exist, keep a *non-CVE* draft in `submission.json`. Once an ID is genuinely assigned and the record's author/submitter is authorized, validate its `cve/` JSON against the pinned official schema; no arbitrary top-level `notes` or `exploitability` in the CNA container. Include project-specific public references when the CVE record is published.
+
+Before contacting a CNA, check vendor/product scope, existing CVEs/GHSAs, overlap or duplicates, affected release versions (do not assume a snapshot affects all releases), and the actual disclosure state. The chosen CNA decides CVE eligibility, severity, scope and publication timing. Passing our CI does **not** confer CVE acceptance.
+
+### Acceptance gates (all mandatory for public PRs)
+
+1. Lab authorization and the current code/commit under test are explicitly recorded.
+2. `submission.json` is complete; paths, findings, and proof levels are internally consistent.
+3. The positive and negative control results and the exact observed impact match the report. Failed and missing tests are disclosed.
+4. CVSS score and affected-version assertions are backed by evidence and do not overclaim.
+5. Vendor/CNA coordination is recorded and a human maintainer has approved this public disclosure.
+6. Scripts are bounded/non-destructive; secrets and real user data have been removed or redacted transparently.
+7. Local validator and GitHub Actions pass. A human reviewer approves the technical claim; CI can check syntax and structure but cannot establish vulnerability truth.
+
+References: [CNA Rules v4.2.0](https://github.com/CVEProject/cve-documents/blob/master/CNA_Rules.md), [Official CVE Record schema](https://github.com/CVEProject/cve-schema), [VulDB submission policy](https://vuldb.com/kb/submission).

@@ -1,72 +1,43 @@
-# <product> — proof-of-concept material
+# REPLACE_WITH_PRODUCT — proof-of-concept material
 
-<!--
-Scaffold. Copy to <product>-poc/ and fill in.
-Read ../../README.md and ../../CONTRIBUTING.md first.
--->
+> Machine-readable source of truth: [`submission.json`](submission.json). Copy the scaffold from `_template/project-poc/` and replace every placeholder before creating a public PR.
 
-**Target** `<module or artifact>`
-**Version** `<version tested>`
-**Commit tested** `<full sha>` (clean worktree)
-**Disclosure state** not yet reported to the vendor or any CNA
-**CNA** not yet assigned
-
-All findings below were reproduced against a locally built instance of the exact commit above.
-
----
+**Vendor / product:** REPLACE_WITH_VENDOR / REPLACE_WITH_PRODUCT  
+**Tested version and commit:** REPLACE_WITH_VERSION, REPLACE_WITH_COMMIT  
+**Disclosure:** REPLACE_WITH_DISCLOSURE_STATE  
+**Verification:** REPLACE_WITH_PROOF_LEVEL  
+**CVE:** unassigned, or authentic CVE ID only
 
 ## Findings
 
-| ID | Title | CWE | CVSS v3.1 | CVE |
+| ID | Name | Proof level | Tested version | CVE |
 |---|---|---|---|---|
-| V1 | `<one line>` | CWE-### | **0.0** (CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H) | *pending* |
+| F1 | REPLACE_WITH_TITLE | HYPOTHESIS | REPLACE_WITH_VERSION | Unassigned |
 
-State the privilege each finding requires and whether that privilege exists by default. `PR:L` is
-meaningless without that.
+## F1 — REPLACE_WITH_TITLE
 
----
+**Security boundary:** REPLACE_WITH_EXPECTED_AUTHORIZATION_OR_ISOLATION_BOUNDARY
 
-## V1 — `<title>`
+**Preconditions and attacker privileges:** REPLACE_WITH_PRECONDITIONS
 
-**`<one sentence: what an ordinary caller can do that they should not be able to do>`**
+**Observed impact:** REPLACE_WITH_RUNTIME_EVIDENCE_NOT_THEORETICAL_MAXIMUM
 
-**Affected code**
+**Negative control:** REPLACE_WITH_CONTROL_RESULT
 
-- `path/to/File.java:42` — <role>
+**What was NOT demonstrated:** REPLACE_WITH_LIMITATIONS
 
-**Preconditions**
+**Affected version scope:** Only the exact tested version/commit is verified unless further test evidence exists.
 
-1. <what must be true, and whether it is true by default>
+**Evidence and reproduction:** [`report.md`](report.md) and paths in `submission.json`.
 
-**Steps and observed result**
-
-```
-<verbatim output from the PoC, not a paraphrase>
-```
-
-**What was NOT demonstrated**
-
-<State it. This section is what separates a Proof-of-Concept from an overclaim, and it is the first
-thing a CNA reviewer checks.>
-
-**Impact**
-
-<Who is affected and what it costs. Separate technical exploitability from business consequence —
-they are scored separately and reviewers conflate them constantly.>
-
-**Remediation**
-
-1. <the structural fix, not "validate input">
-
----
+**Vendor/CNA coordination:** REPLACE_WITH_CONTACT_AND_PUBLICATION_APPROVAL
 
 ## Files
 
-| Path | Contents |
-|---|---|
-| `report.md` | full reproduction report |
-| `poc/` | one runnable script per finding |
-| `cve/` | CVE JSON 5.1 records |
-| `nuclei/` | detection-only templates |
-| `env/` | build and run instructions, minimal payloads |
-| `evidence/` | verbatim captured output |
+- `submission.json` — canonical structured metadata
+- `report.md` — precise steps, positive and negative controls, interpretation
+- `poc/` — authorized minimal reproducible test
+- `evidence/` — raw redacted observation and provenance
+- `env/` — isolated lab setup and teardown
+- `cve/` — optional, only if legitimately assigned and schema-valid
+- `nuclei/` — optional, strictly detection-only

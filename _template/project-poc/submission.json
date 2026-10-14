@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "vendor": "REPLACE_WITH_VENDOR",
+  "product": "REPLACE_WITH_PRODUCT",
+  "upstreamUrl": "https://example.invalid/source",
+  "testedVersion": "REPLACE_WITH_TESTED_VERSION",
+  "testedCommit": "REPLACE_WITH_40_CHAR_GIT_SHA",
+  "disclosure": {
+    "status": "NOT_REPORTED",
+    "vendorContact": "NOT_YET_CONTACTED",
+    "publicationApproved": false,
+    "publicationApproval": ""
+  },
+  "findings": [
+    {
+      "id": "F1",
+      "slug": "REPLACE_WITH_FINDING_SLUG",
+      "title": "REPLACE_WITH_VULNERABILITY_TITLE",
+      "cwe": "CWE-000",
+      "proofLevel": "HYPOTHESIS",
+      "readyForCnaReview": false,
+      "preconditions": "REPLACE_WITH_ATTACKER_AND_DEPLOYMENT_PRECONDITIONS",
+      "positiveControl": "REPLACE_WITH_OBSERVED_POSITIVE_CONTROL",
+      "negativeControl": "REPLACE_WITH_OBSERVED_NEGATIVE_CONTROL_OR_REASON_NOT_APPLICABLE",
+      "observedImpact": "REPLACE_WITH_OBSERVED_SECURITY_IMPACT",
+      "notDemonstrated": "REPLACE_WITH_UNPROVEN_IMPACTS_AND_LAYERS",
+      "poc": "poc/REPLACE_WITH_POC_FILENAME.py",
+      "evidence": ["evidence/REPLACE_WITH_EVIDENCE_FILENAME.txt"],
+      "cvssVector": null,
+      "cveId": null
+    }
+  ]
+}

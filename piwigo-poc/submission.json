@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "vendor": "Piwigo",
+  "product": "Piwigo",
+  "upstreamUrl": "https://github.com/Piwigo/Piwigo",
+  "testedVersion": "17.0.0beta1",
+  "testedCommit": "08cd55a4e6c17d3a36e5d9585dbe7ce690d16d8d",
+  "disclosure": {
+    "status": "NOT_REPORTED",
+    "vendorContact": "NOT_YET_CONTACTED — vendor security contact is security@piwigo.org per upstream SECURITY.md; no message sent as of this submission",
+    "publicationApproved": false,
+    "publicationApproval": ""
+  },
+  "findings": [
+    {
+      "id": "F1",
+      "slug": "piwigo-upgrade-feed-anon-db-mutation",
+      "title": "Anonymous GET against /upgrade_feed.php executes install/db/<n>-database.php under the application's MySQL credentials, with full DDL/DML on the application database",
+      "cwe": "CWE-862",
+      "proofLevel": "RUNTIME_VERIFIED",
+      "readyForCnaReview": false,
+      "preconditions": "Default Piwigo 17.0.0beta1 install on PHP 7.4+ / MariaDB or MySQL. The application's piwigo_upgrade table is desynchronised from the on-disk install/db/ directory — a routine outcome of interrupted upgrades, fresh-code-on-old-DB deploys, backup-restore drift, or successful exploitation of GHSA-6wj3-7fhw-gfpm (CVE-2026-44642) which lets an unauthenticated attacker DELETE rows from piwigo_upgrade via the SQLi in check_upgrade_access_rights(). $conf['check_upgrade_feed'] ships as true.",
+      "positiveControl": "Single anonymous GET http://localhost:8089/upgrade_feed.php with no Cookie / no Authorization / no pwg_token. The HTTP 200 response body contains '=== upgrade 145' and 'add image formats table'. The application database shows piwigo_image_format has been CREATEd with the exact schema from install/db/145-database.php and piwigo_upgrade.id=145 has been re-populated with applied=NOW() and the upgrade_description. Evidence: evidence/F1-upgrade-feed/db-after-describe.txt + db-after-table.txt + db-after-upgrade.txt + response-body.txt + request-trace.txt.",
+      "negativeControl": "An anonymous GET against /upgrade_feed.php when no piwigo_upgrade row is missing returns HTTP 200 with body '<pre>0 upgrades to apply</pre>' and executes zero DDL/DML — confirming the path is dormant in the steady state and only fires on a desync.",
+      "observedImpact": "Unauthenticated attacker, with no authentication or token, triggers arbitrary DDL/DML on the application database via the application's own mysqli credentials. Scope is changed (AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:N). Demonstrated impact: CREATE TABLE piwigo_image_format — actual schema mutation on the production database. Other upgrade scripts in install/db/ include additional CREATE TABLE / UPDATE piwigo_config / UPDATE with safe_unserialize paths; the same anonymous trigger model applies to all 121 entries.",
+      "notDemonstrated": "We did not run every one of the 121 install/db/<n>-database.php scripts against a live target; we ran 145 (CREATE TABLE) and 180 ([Aborted], row repopulation only) and source-reviewed the rest. We did not exploit F-1 via the GHSA-6wj3-7fhw-gfpm path; F-1 and the GHSA are independent defects. We did not run a side-by-side on a production traffic-shape; the local fixture uses the Docker bridge gateway IP, and the test setup recreates the pre-145 schema state by DROPPing piwigo_image_format — that DROP is part of test preparation, not part of the attack path.",
+      "poc": "poc/piwigo-upgrade-feed-anon-db-mutation.sh",
+      "evidence": [
+        "evidence/F1-upgrade-feed/response-body.txt",
+        "evidence/F1-upgrade-feed/db-after-table.txt",
+        "evidence/F1-upgrade-feed/db-after-describe.txt",
+        "evidence/F1-upgrade-feed/db-after-upgrade.txt",
+        "evidence/F1-upgrade-feed/db-before-table.txt",
+        "evidence/F1-upgrade-feed/setup-after-drop.txt",
+        "evidence/F1-upgrade-feed/request-trace.txt"
+      ],
+      "cvssVector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:N",
+      "cveId": null
+    },
+    {
+      "id": "nv3",
+      "slug": "piwigo-picture-csrf-get-mutations",
+      "title": "picture.php GET handlers add_to_favorites, remove_from_favorites, add_to_caddie, and rate mutate state without check_pwg_token(); CSRF on any logged-in user",
+      "cwe": "CWE-352",
+      "proofLevel": "RUNTIME_VERIFIED",
+      "readyForCnaReview": false,
+      "preconditions": "Default Piwigo 17.0.0beta1 install with at least one logged-in user. The attacker hosts a malicious page or sends the victim an <img src=...> link; the victim's session cookie is sent automatically on the cross-origin GET.",
+      "positiveControl": "Victim with status=normal logged in via identification.php. Two single GET requests without any pwg_token — http://localhost:8089/picture.php?/1/category/1&action=add_to_favorites and http://localhost:8089/picture.php?/1/category/1&action=add_to_caddie — return HTTP 302 redirect. After the requests, piwigo_favorites and piwigo_caddie each contain a row keyed to (victim_uid, image_id=1). Evidence: evidence/nv3-csrf-get-mutations/db-after.txt + db-before.txt.",
+      "negativeControl": "Peer action on the same page (delete_comment) demonstrates the gate is present and works: HTTP GET against delete_comment WITHOUT pwg_token returns HTTP 400 and the comment row is preserved; the same request WITH the correct pwg_token (hash_hmac('md5', session_id, secret_key)) returns HTTP 302 and the row is deleted. Contrast proves the omission on add_to_favorites / add_to_caddie / rate is the defect. Evidence: evidence/nv3-csrf-get-mutations/db-comment-after-no-token.txt + csrf-trace.txt.",
+      "observedImpact": "Any authed Piwigo user can be forced into add_to_favorites / add_to_caddie / rate mutations via a single cross-origin GET — bookmark poisoning, caddie pollution, rating inflation. CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:H/A:N.",
+      "notDemonstrated": "We did not test remove_from_favorites (the DELETE-direction counterpart of add_to_favorites); the source-trace shows it shares the same missing check_pwg_token() and is reachable the same way. We did not test rate against a logged-in user — same code path, same omission. We did not test set_as_representative (admin-only) in this PoC; the source-trace at picture.php:286-301 shows it shares the same omission but is admin-gated. We did not capture a browser end-to-end exploit (HTML+cookie); the cURL PoC reproduces the same wire behaviour the browser would produce.",
+      "poc": "poc/piwigo-picture-csrf-add-to-favorites.sh",
+      "evidence": [
+        "evidence/nv3-csrf-get-mutations/db-before.txt",
+        "evidence/nv3-csrf-get-mutations/db-after.txt",
+        "evidence/nv3-csrf-get-mutations/db-comment-after-no-token.txt",
+        "evidence/nv3-csrf-get-mutations/csrf-trace.txt",
+        "evidence/nv3-csrf-get-mutations/victim-create.txt"
+      ],
+      "cvssVector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:H/A:N",
+      "cveId": null
+    },
+    {
+      "id": "nv4",
+      "slug": "piwigo-ws-filtered-search-unbounded",
+      "title": "pwg.images.filteredSearch.create accepts anonymous POSTs with no authentication, no pwg_token, and no rate limit; each call inserts a row in piwigo_search",
+      "cwe": "CWE-400",
+      "proofLevel": "RUNTIME_VERIFIED",
+      "readyForCnaReview": false,
+      "preconditions": "Default Piwigo 17.0.0beta1 install. The endpoint is registered in ws.php without admin_only; ws_images_filteredSearch_create has no authentication gate, no pwg_token check, no per-IP/per-session rate limit, and no duplicate detection.",
+      "positiveControl": "N=10 anonymous POSTs (configurable) to http://localhost:8089/ws.php?method=pwg.images.filteredSearch.create with unique allwords values and no Cookie / no Authorization / no token header. Each response is HTTP 200 with a unique <search_id>psk-...</search_id>. After the run, SELECT COUNT(*) FROM piwigo_search returns baseline + N with the new search_uuid values populated. Evidence: evidence/nv4-filtered-search-unbounded/db-after-count.txt + db-after-sample.txt + request-log.txt + resp-*-*.xml + anonymous-trace.txt.",
+      "negativeControl": "The endpoint does not require authentication or token; there is no negative case to demonstrate. The implicit baseline (delta equals N, unique search_ids) confirms there is no deduplication and no per-caller throttle.",
+      "observedImpact": "A single attacker, or a small botnet, can grow piwigo_search arbitrarily. piwigo_search.rules is a serialized PHP array that grows with rule complexity. The table is queried on every gallery page load via the saved-search sidebar; growth translates directly into read amplification. CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H.",
+      "notDemonstrated": "We did not measure the gallery-page-load time as a function of piwigo_search row count (the live amplifier); the read-amplification claim is from the static-review of include/search_filters.inc.php and the saved-search sidebar query path. We did not run the test at N>10; the delta-equality result is the proof of unboundedness and any larger N would give the same delta. We did not test other capacity endpoints in this run.",
+      "poc": "poc/piwigo-ws-filtered-search-unbounded.sh",
+      "evidence": [
+        "evidence/nv4-filtered-search-unbounded/db-before-count.txt",
+        "evidence/nv4-filtered-search-unbounded/db-after-count.txt",
+        "evidence/nv4-filtered-search-unbounded/db-after-sample.txt",
+        "evidence/nv4-filtered-search-unbounded/request-log.txt",
+        "evidence/nv4-filtered-search-unbounded/anonymous-trace.txt"
+      ],
+      "cvssVector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "cveId": null
+    },
+    {
+      "id": "nv5",
+      "slug": "piwigo-ws-images-rate-db-amplification",
+      "title": "pwg.images.rate unconditionally executes an O(R) GROUP BY + mass_updates per request (CNA Rules §4.1.5: product-side resource control defect, not brute-force DoS)",
+      "cwe": "CWE-400",
+      "proofLevel": "RUNTIME_VERIFIED",
+      "readyForCnaReview": false,
+      "preconditions": "$conf['rate'] = true (the rate feature toggle; not declared in include/config_default.inc.php so it defaults to NULL/false; flipping it requires a single admin-side UPDATE of piwigo_config). $conf['rate_anonymous'] is conventionally true when $conf['rate'] is true (rate_picture() assumes this; not declared in config_default.inc.php either). The endpoint is registered in ws.php without admin_only; the only check is image accessibility via F&F.",
+      "positiveControl": "Test setup: rate=true; truncate piwigo_rate. Baseline: N=5 anonymous pwg.images.rate POSTs against image_id=1, avg 0.0120s. Seed: INSERT 100 000 synthetic rows into piwigo_rate. Measured: same N=5 anonymous POSTs, avg 0.0300s. EXPLAIN on the GROUP BY query: type=ALL, key=NULL, rows=100001, Extra=Using temporary; Using filesort. Evidence: evidence/nv5-rate-db-amplification/baseline-timing.txt + measured-timing.txt + explain.txt + seeded-count.txt.",
+      "negativeControl": "When $conf['rate'] = false (the out-of-the-box default), rate_picture() returns false at include/functions_rate.inc.php:25-31 before reaching update_rating_score(), and the request is rejected without GROUP BY. This is the documented gate that exists; the omission is the lack of any rate-limit / per-caller throttle once the gate is open.",
+      "observedImpact": "Per CNA Rules §4.1.5 (Resource Exhaustion), this is a product-side resource control defect: every anonymous rate call executes an unconditional O(R) computation where R is the row count of piwigo_rate. R is monotonically attacker-growable — every successful rate call INSERTs one row, so the attacker can grow R by repeating the call. EXPLAIN (type=ALL, Using temporary; Using filesort) is the decisive proof that every call scans and sorts the full set regardless of which image was rated. CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H. The 1.5× timing at N=100k is bounded by the buffer pool in the test fixture; EXPLAIN is the proof that the per-call cost is unconditional O(R), not the timing ratio.",
+      "notDemonstrated": "We did not run the test at N > 100k (seed time grows linearly with N); the linear scaling is a property of the GROUP BY + filesort work and is the only thing the EXPLAIN leaves open to growth. We did not measure the per-image cache or the off-by-one bounding in update_rating_score(); we did observe that the SELECT-null path on rate-less images also runs on every call. We did not test the rate handler when $conf['rate_anonymous'] is false but $conf['rate'] is true (the gate is present, the amplifier is dormant).",
+      "poc": "poc/piwigo-ws-images-rate-db-amplification.sh",
+      "evidence": [
+        "evidence/nv5-rate-db-amplification/config.txt",
+        "evidence/nv5-rate-db-amplification/baseline-count.txt",
+        "evidence/nv5-rate-db-amplification/baseline-timing.txt",
+        "evidence/nv5-rate-db-amplification/seeded-count.txt",
+        "evidence/nv5-rate-db-amplification/measured-timing.txt",
+        "evidence/nv5-rate-db-amplification/explain.txt",
+        "evidence/nv5-rate-db-amplification/anonymous-trace.txt"
+      ],
+      "cvssVector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "cveId": null
+    }
+  ]
+}

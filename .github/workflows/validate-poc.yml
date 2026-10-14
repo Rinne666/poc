@@ -1,0 +1,38 @@
+name: Validate PoC submissions
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install offline-schema validator dependency
+        run: python -m pip install 'jsonschema>=4.22,<5'
+      - name: Fetch pinned CVE JSON 5.1 schema
+        run: |
+          mkdir -p .cache
+          curl --fail --silent --show-error --location \
+            https://raw.githubusercontent.com/CVEProject/cve-schema/v5.1.0/schema/CVE_Record_Format.json \
+            -o .cache/CVE_Record_Format.json
+      - name: Validate changed project directories
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        shell: bash
+        run: |
+          if [[ -n "$BASE_SHA" ]]; then
+            python tools/validate_poc.py --base "$BASE_SHA" --schema .cache/CVE_Record_Format.json
+          else
+            # A new repository or an unusual event with no base commit.
+            python tools/validate_poc.py --all --schema .cache/CVE_Record_Format.json
+          fi

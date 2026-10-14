@@ -25,10 +25,11 @@ here.
 [ ] each PoC creates only objects it names <project>-poc-*, and cleans up its account
 [ ] no reverse shell, no data export, no persistence, no bundled gadget chain
 [ ] CVSS vector and score derived, not guessed; state what was NOT demonstrated
-[ ] cve/*.cve.json is dataVersion 5.1, state RESERVED, exploitability PROOF_OF_CONCEPT
+[ ] submission.json is complete with schemaVersion 1; the optional cve/*.json contains ONLY actually assigned, official-schema-validated CVE records; no self-issued RESERVED/PENDING records
 [ ] evidence/ holds unedited captured output
 [ ] nuclei/ templates DETECT; they never exploit
 [ ] README.md states the disclosure state, including "not yet reported"
+[ ] disclosure.publicationApproved is true only after an explicit human maintainer recorded the approval in submission.json
 ```
 
 That last item is the one people skip, and it is the one that decides whether the repository can
