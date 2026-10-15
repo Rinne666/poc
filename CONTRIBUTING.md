@@ -47,8 +47,9 @@ lead with what the finding is, not with how you found it. `report.md` is the art
 actually reads, and it should read like a trail rather than a puzzle: every step must be executable
 by someone who does not know your environment.
 
-Generate the CVE records with a script rather than hand-writing them, so sibling records stay
-structurally identical. `flowable-poc/env/make_cve_records.py` is the working example.
+Generate the (optional) `cve/*.json` records with a script rather than hand-writing them, so
+sibling records stay structurally identical. Per the root `README.md` policy, only actually
+CNA-assigned records are stored under `cve/`; unassigned drafts live in `submission.json`.
 
 ## Naming
 
@@ -56,7 +57,7 @@ Lowercase ASCII, hyphen-separated, no CVE ID in any filename:
 
 ```
 <product>-<component>-<vulnerability-type>
-flowable-rest-deployment-rce
+piwigo-upgrade-feed-anon-db-mutation
 ```
 
 A file named after a CVE ID that is later reallocated or rejected is worse than no ID at all.
@@ -79,9 +80,8 @@ Capture that output into `evidence/` verbatim. Do not paraphrase it.
 
 ## When a PoC contradicts the report
 
-Fix the report, not the wording of the PoC. This repository has one such correction on record — an
-earlier draft claimed cross-job external-worker impersonation; testing showed Flowable correctly
-refuses that case with `403`, and the finding was restated as the accurate one (identity readable
-and replayable, not usable across jobs). The correction is described in `flowable-poc/report.md`
-rather than quietly dropped, because a reader who saw the earlier claim deserves to know it was
-wrong and why.
+Fix the report, not the wording of the PoC. If a finding's evidence shows the defect does not
+materialise as described — for example, a counterexample where the documented auth or rate
+gate actually works — restate the finding narrowly and record what was NOT demonstrated rather
+than quietly dropping the record. Earlier entries that did not survive this discipline were
+retired from the public repository; lessons from that review are kept in the project history.

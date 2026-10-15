@@ -10,30 +10,20 @@ the same place.
 
 ## Disclosure status — read this first
 
-**Disclosure state differs per project, and every project directory states its own.** Check the
-project you are about to rely on:
+This repository is a single-project PoC archive for the Piwigo
+audit. Earlier directory entries (Spinnaker rosco, Flowable, iFlytek
+astron-agent, dromara MaxKey) were removed on 2026-10-15 by the
+maintainer; those records did not represent vulnerabilities and are
+no longer claimable from this repository. The remaining project
+states its own disclosure.
 
 | Project | State | Consequence for an operator |
 |---|---|---|
-| `spinnaker-rosco-helmfile-rce` | **reported, fixed, credited**; CVE requested, not yet allocated | upgrade to rosco 2026.3.1 or later. ≤ 2026.3.0 is exposed |
-| `flowable-poc` | not yet reported to the vendor or any CNA | treat as live until Flowable publishes a fix |
-| `astron-agent-poc` | not yet reported to iFlytek or any CNA | treat as live; there is no fix to wait for |
-| `maxkey-poc` | **reported to the vendor** via GitHub private vulnerability reporting; no fix yet | treat as live; any instance from the shipped compose file may still hold the seeded admin credential |
+| `piwigo-poc` | NOT_REPORTED; vendor has not been contacted as of this submission | treat as live; see `piwigo-poc/README.md` and `piwigo-poc/submission.json` |
 
 This repository is public. That was a deliberate choice by the maintainer of this repository, made
-to support a CNA submission. It has a consequence worth stating plainly rather than burying: for the
-Flowable and astron-agent findings, downstream users of those products have no vendor warning period
-yet. The Spinnaker finding is the exception — the vendor was notified and shipped a fix, so there is
-a fixed version to move to.
-
-The sequence that would normally precede publication:
-
-1. Submit to the vendor's security contact, or to a CNA, using the `cve/*.cve.json` records here.
-2. Observe the confidentiality window. VulDB allows 90 days; other CNAs vary.
-3. Obtain the CVE ID and replace the `CVE-PENDING-*` identifiers.
-4. Update the project directory with the new identifiers and the vendor's response.
-
-Steps 1–3 have not been completed. Each project's `submission.json` records its actual disclosure state, and the optional `cve/*.cve.json` directory now contains only records whose CVE IDs were genuinely assigned by a CNA — pre-allocation drafts are kept out of the public repository. See the project README and `submission.json` for the per-project status.
+to support a CNA submission once vendor contact is recorded. Until then, the material here is
+research with no vendor warning period yet.
 
 **A note on why this is still publishable.** VulDB's requirement is a *publicly verifiable* proof of
 concept, which can be satisfied by an accessible test instance or by screenshots of a local
@@ -74,44 +64,24 @@ it is what keeps this repository publishable.
 poc/
 ├── README.md                  this file — conventions and disclosure state
 ├── CONTRIBUTING.md            how to add a project, and the review checklist
-├── spinnaker-rosco-helmfile-rce/  Spinnaker rosco (Bake / Manifest rendering)
-│   ├── README.md              summary, affected versions, fix status, links
-│   ├── report.md              full reproduction report: environment, steps, expected output
-│   ├── poc/                   one runnable proof
-│   ├── cve/                   CVE JSON 5.1 record, ready for CNA submission
-│   ├── nuclei/                Nuclei detection template
-│   ├── env/                   how to build and run the target; CVSS and CVE generators
-│   └── evidence/              verbatim captured output from the run
-├── flowable-poc/              Flowable Engine REST API
-│   ├── README.md              one-line-per-finding summary, affected versions, links
-│   ├── report.md              full reproduction report: environment, steps, expected output
-│   ├── poc/                   runnable proofs, one file per finding
-│   ├── cve/                   CVE JSON 5.1 records, ready for CNA submission
-│   ├── nuclei/                Nuclei detection templates
-│   ├── env/                   how to build and run the target, plus minimal payloads
-│   └── evidence/              verbatim captured output backing every claim
-├── astron-agent-poc/          iFlytek astron-agent (Console backend, workflow engine, core-database)
-│   ├── README.md              one-line-per-finding summary, affected versions, links
-│   ├── report.md              full reproduction report: environment, steps, expected output
-│   ├── poc/                   runnable proofs, one file per finding
-│   ├── cve/                   CVE JSON 5.1 records, ready for CNA submission
-│   ├── nuclei/                Nuclei detection templates
-│   ├── env/                   how to build and run the target, plus the victim-flow seed
-│   └── evidence/              session records backing every claim (redacted; see evidence/README.md)
-├── maxkey-poc/               dromara MaxKey IAM/SSO (OAuth2/OIDC, SAML 2.0, CAS, JWT, SCIM)
-│   ├── README.md              summary, affected versions, disclosure state, inertness
-│   ├── cve/                   CVE JSON 5.1 records, ready for CNA submission
-│   ├── poc/                   Java harnesses + integration reproduction scripts
-│   ├── env/                   two-tenant seed SQL for the cross-tenant test
-│   └── evidence/              verbatim captured output + RESULTS.md
+├── AGENTS.md                  binding rules for AI agents editing this repo
+├── .github/                   pull request template + validate-poc CI workflow
+├── tools/                     validate_poc.py (project-structure + CVE JSON schema gate)
+├── piwigo-poc/                the single active project
+│   ├── submission.json        canonical structured metadata
+│   ├── README.md              human-readable index, derived from submission.json
+│   ├── report.md              per-finding reproduction report
+│   ├── poc/                   runnable proofs
+│   ├── evidence/              raw redacted observation
+│   └── env/                   isolated lab setup
 └── _template/                 scaffold for a new project
 ```
 
-> One template in this repository is deliberately *not* a vulnerability probe.
-> `spinnaker-rosco-helmfile-rce/nuclei/` only confirms the bake endpoint is reachable, using
-> a request that is rejected before any artifact is fetched — because the only request that
-> distinguishes a guarded rosco from an unguarded one would execute a command on the target.
-> The file explains that reasoning in full.
+> Detection-only templates in any future project's `nuclei/` directory must stay
+> detection-only. A template should only confirm a precondition (e.g. an endpoint is reachable)
+> using a request that is rejected before any artifact is fetched — because the only request
+> that distinguishes a guarded target from an unguarded one would execute a command on the
+> target. Detection is not evidence of exploitability.
 
 ## Naming
 
@@ -119,8 +89,8 @@ Lowercase ASCII, hyphen-separated, matching what a CNA entry would be called:
 
 ```
 <product>-<component>-<vulnerability-type>
-flowable-rest-deployment-rce
-flowable-rest-serializable-deser
+piwigo-upgrade-feed-anon-db-mutation
+piwigo-ws-images-rate-db-amplification
 ```
 
 Never embed a CVE ID in a filename. A CNA allocates it, and a file named after an ID that is later
