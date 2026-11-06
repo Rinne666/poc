@@ -1,0 +1,10 @@
+# date: 2026-11-06T09:32:43Z
+# cmd: curl -c /tmp/ej.txt -X POST http://localhost:18080/login -d 'username=verifyuser&password=verifypw' (expect 302)
+login -> HTTP 302
+# cmd: curl -b /tmp/ej.txt http://localhost:18443/monitor/env -o /tmp/env-ev.json
+env -> HTTP 200, 34728 bytes
+# planted dummy values found in response:
+VERIFY-DUMMY-SECRET-KEY-0123456789abcdef -> 1
+verifyuser:verifypw -> 1
+verifyadmin:verifyadminpw -> 1
+verify-admin-pw -> 1

@@ -10,16 +10,17 @@ the same place.
 
 ## Disclosure status — read this first
 
-This repository is a single-project PoC archive for the Piwigo
+This repository started as a single-project PoC archive for the Piwigo
 audit. Earlier directory entries (Spinnaker rosco, Flowable, iFlytek
 astron-agent, dromara MaxKey) were removed on 2026-10-15 by the
 maintainer; those records did not represent vulnerabilities and are
-no longer claimable from this repository. The remaining project
+no longer claimable from this repository. Each active project
 states its own disclosure.
 
 | Project | State | Consequence for an operator |
 |---|---|---|
 | `piwigo-poc` | NOT_REPORTED; vendor has not been contacted as of this submission | treat as live; see `piwigo-poc/README.md` and `piwigo-poc/submission.json` |
+| `pinpoint-poc` | NOT_REPORTED; vendor has not been contacted as of this submission | treat as live; see `pinpoint-poc/README.md` and `pinpoint-poc/submission.json` |
 
 This repository is public. That was a deliberate choice by the maintainer of this repository, made
 to support a CNA submission once vendor contact is recorded. Until then, the material here is

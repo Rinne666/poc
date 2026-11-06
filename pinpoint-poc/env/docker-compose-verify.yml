@@ -1,0 +1,145 @@
+# Minimal verification stack derived from pinpoint-docker 4.0.0 compose.
+# Only what the audit leads need: hbase + mysql + zookeeper + redis + collector + web.
+# No quickstart app, no flink, no batch, no agent.
+x-network: &pinpoint-network
+  networks:
+    - pinpoint
+
+services:
+  pinpoint-mysql:
+    image: "mysql:8.0"
+    container_name: pinpoint-mysql
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=root123
+      - MYSQL_USER=admin
+      - MYSQL_PASSWORD=admin
+      - MYSQL_DATABASE=pinpoint
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql-init:/docker-entrypoint-initdb.d
+    networks:
+      - pinpoint
+
+  pinpoint-zoo:
+    image: "zookeeper:3.8"
+    container_name: pinpoint-zoo
+    restart: always
+    environment:
+      ZOO_4LW_COMMANDS_WHITELIST: "*"
+    networks:
+      - pinpoint
+
+  pinpoint-redis:
+    image: "redis:7"
+    container_name: pinpoint-redis
+    restart: always
+    networks:
+      - pinpoint
+
+  pinpoint-hbase:
+    image: "pinpointdocker/pinpoint-hbase:4.0.0"
+    container_name: pinpoint-hbase
+    restart: always
+    depends_on:
+      - pinpoint-zoo
+    environment:
+      - HBASE_HEAPSIZE=1500
+      - HBASE_OPTS=-XX:+UseG1GC -XX:MaxGCPauseMillis=100
+      - AGENTINFO_TTL=31536000
+      - AGENTSTATV2_TTL=31536000
+      - APPSTATAGGRE_TTL=31536000
+      - APPINDEX_TTL=31536000
+      - AGENTLIFECYCLE_TTL=31536000
+      - AGENTEVENT_TTL=31536000
+      - STRINGMETADATA_TTL=31536000
+      - APIMETADATA_TTL=31536000
+      - SQLMETADATA_TTL=31536000
+      - TRACEV2_TTL=31536000
+      - APPTRACEINDEX_TTL=31536000
+      - APPMAPSTATCALLERV2_TTL=31536000
+      - APPMAPSTATCALLEV2_TTL=31536000
+      - APPMAPSTATSELFV2_TTL=31536000
+      - HOSTAPPMAPV2_TTL=31536000
+    expose:
+      - "60000"
+      - "16010"
+      - "60020"
+      - "16030"
+    ports:
+      - "16010:16010"
+    volumes:
+      - hbase_data:/home/pinpoint/hbase
+      - /home/pinpoint/zookeeper
+      - ./hbase-overlay/conf/hbase-site.xml:/opt/hbase/hbase-2.2.6/conf/hbase-site.xml:ro
+    networks:
+      - pinpoint
+
+  pinpoint-collector:
+    image: "pinpointdocker/pinpoint-collector:4.0.0"
+    container_name: pinpoint-collector
+    restart: always
+    depends_on:
+      - pinpoint-hbase
+      - pinpoint-zoo
+      - pinpoint-redis
+    expose:
+      - "9991"
+      - "9992"
+      - "9993"
+      - "9994"
+      - "9995"
+      - "9996"
+    ports:
+      # HTTP management port (the audit surface)
+      - "8081:8081"
+      - "9991:9991/tcp"
+      - "9992:9992/tcp"
+      - "9993:9993/tcp"
+    environment:
+      - SPRING_PROFILES_ACTIVE=release
+      - PINPOINT_ZOOKEEPER_ADDRESS=pinpoint-zoo
+      - CLUSTER_ENABLE=true
+      - SPRING_DATA_REDIS_HOST=pinpoint-redis
+      - SPRING_DATA_REDIS_PORT=6379
+     
+      - JAVA_TOOL_OPTIONS=-Dspring.jmx.enabled=false -Dpinpoint.zookeeper.address=pinpoint-zoo -Dpinpoint.modules.realtime.enabled=true -Dcollector.admin.api.rest.active=true -Dcollector.admin.password=verify-admin-pw -Dspring.datasource.hikari.jdbc-url=jdbc:mysql://pinpoint-mysql:3306/pinpoint?characterEncoding=UTF-8 -Dspring.datasource.hikari.username=admin -Dspring.datasource.hikari.password=verify-dummy-pw -Dspring.data.redis.password=verify-redis-pw
+    networks:
+      - pinpoint
+
+  pinpoint-web:
+    image: "pinpointdocker/pinpoint-web:4.0.0"
+    container_name: pinpoint-web
+    restart: always
+    depends_on:
+      - pinpoint-hbase
+      - pinpoint-zoo
+      - pinpoint-redis
+      - pinpoint-mysql
+    ports:
+      - "18080:8080"
+      - "18443:8443"
+    environment:
+      - SPRING_PROFILES_ACTIVE=release,metric
+      - PINPOINT_ZOOKEEPER_ADDRESS=pinpoint-zoo
+      - CLUSTER_ENABLE=true
+      - SPRING_DATA_REDIS_HOST=pinpoint-redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - SPRING_DATASOURCE_HIKARI_JDBCURL=jdbc:mysql://pinpoint-mysql:3306/pinpoint?characterEncoding=UTF-8
+      - SPRING_DATASOURCE_HIKARI_USERNAME=admin
+      - SPRING_DATASOURCE_HIKARI_PASSWORD=verify-dummy-pw
+      - SPRING_METADATASOURCE_HIKARI_JDBCURL=jdbc:mysql://pinpoint-mysql:3306/pinpoint?characterEncoding=UTF-8
+      - SPRING_METADATASOURCE_HIKARI_USERNAME=admin
+      - SPRING_METADATASOURCE_HIKARI_PASSWORD=verify-dummy-pw
+     
+      - JAVA_TOOL_OPTIONS=-Dpinpoint.modules.web.login=basicLogin -Dweb.security.auth.user=verifyuser:verifypw -Dweb.security.auth.admin=verifyadmin:verifyadminpw -Dweb.security.auth.jwt.secretkey=VERIFY-DUMMY-SECRET-KEY-0123456789abcdef -Dadmin.password=verify-admin-pw -Dpinpoint.zookeeper.address=pinpoint-zoo
+    networks:
+      - pinpoint
+
+volumes:
+  mysql_data:
+  hbase_data:
+
+networks:
+  pinpoint:
+    driver: bridge
