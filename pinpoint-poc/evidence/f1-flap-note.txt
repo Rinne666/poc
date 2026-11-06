@@ -1,0 +1,18 @@
+# Observed lab flapping (2026-11-06, recorded verbatim)
+#
+# During the session the web container intermittently rejected previously
+# accepted forged pinpointJwt cookies with 302 (redirect to /login) for
+# periods of ~1-2 minutes, then accepted them again (observed runs of 6/6 and
+# 20/20 HTTP 200 probes with unchanged token construction). The flap
+# coincided with the sibling pinpoint-collector container crash-restarting
+# (compose restart:always, HBase-dependent startup failure) on the shared
+# Docker VM, but a causal link was NOT established.
+#
+# Statuses observed for the same forged-token construction at different
+# minutes: 200 (multiple consecutive runs), 302 (multiple consecutive runs),
+# and 500 on /api/admin (chain passed, HBase-dead handler error).
+#
+# Consequence for the PoC: the escalation probe retries transient 302s; the
+# report documents this flapping under Limitations. The disclosure step
+# (ROLE_USER reading the environment) reproduced 100% of the time in every
+# phase of the session.

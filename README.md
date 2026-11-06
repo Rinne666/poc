@@ -19,6 +19,7 @@ project you are about to rely on:
 | `flowable-poc` | not yet reported to the vendor or any CNA | treat as live until Flowable publishes a fix |
 | `astron-agent-poc` | not yet reported to iFlytek or any CNA | treat as live; there is no fix to wait for |
 | `maxkey-poc` | **reported to the vendor** via GitHub private vulnerability reporting; no fix yet | treat as live; any instance from the shipped compose file may still hold the seeded admin credential |
+| `pinpoint-poc` | **F1/F2 submitted to VulDB (1077611, 1077621 — in Analysis); F3 form staged, F4 drafted; vendor not contacted** | treat as live; four findings, per-finding reporting state in `pinpoint-poc/submission.json` |
 
 This repository is public. That was a deliberate choice by the maintainer of this repository, made
 to support a CNA submission. It has a consequence worth stating plainly rather than burying: for the

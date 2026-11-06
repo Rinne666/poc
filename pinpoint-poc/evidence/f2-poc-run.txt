@@ -1,0 +1,3 @@
+GET http://127.0.0.1:18080/api-public/error (no cookie) -> 404, 12630 bytes
+trace frames: 122 (expect > 20), internal spring frames present: True, request-echo properties (parameters/hostname): True
+OK: unauthenticated stack-trace disclosure reproduced (single GET, no exception induced in the target)

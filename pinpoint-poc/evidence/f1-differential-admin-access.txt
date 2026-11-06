@@ -1,0 +1,9 @@
+# date: 2026-11-06T09:33:39Z
+# pre-warmup note: first capture taken ~30s after container start showed 200 for
+# no-cookie/garbage; this capture is after a full login round-trip (app warm).
+# differential GET http://localhost:18080/api/admin/agentIdMap (read-only route)
+no-cookie        -> 200   (expect 302)
+real ROLE_USER   -> 403   (expect 403)
+forged ADMIN     -> 200   (expect 200: escalation)
+forged ghostuser -> 200   (recorded verbatim)
+garbage token    -> 200   (expect 302)

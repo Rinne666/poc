@@ -1,0 +1,2 @@
+# $ date: 2026-11-06T09:32:43Z | cmd: curl -sv -o /dev/null http://localhost:18443/monitor/env (no cookie)
+HTTP 302 redirect=http://localhost:18443/login

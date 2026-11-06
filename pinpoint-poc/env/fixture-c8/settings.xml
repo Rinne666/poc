@@ -1,0 +1,10 @@
+<settings>
+  <mirrors>
+    <mirror>
+      <id>aliyun-public</id>
+      <mirrorOf>central,jcenter,!osssonatype*</mirrorOf>
+      <name>aliyun public</name>
+      <url>https://maven.aliyun.com/repository/public</url>
+    </mirror>
+  </mirrors>
+</settings>
