@@ -57,3 +57,31 @@ docker compose -f docker-compose-verify.yml down -v
 ```
 
 No state persists outside the compose volumes (removed with `-v`).
+
+## Collector-side findings (F3, F4)
+
+F3 uses the same stack: the `pinpoint-collector` service (host port 8081) is started by
+`docker-compose-verify.yml` with planted dummy credentials via `JAVA_TOOL_OPTIONS`
+(`collector.admin.password`, hikari/redis passwords). Run:
+
+```sh
+python3 ../poc/poc_f3_collector_monitor_unauthenticated.py \
+  --collector-base http://127.0.0.1:8081 --confirm-authorised
+```
+
+F4 cannot run against this stack (the plain collector image carries no OTLP modules and
+the full metric stack needs Pinot/Kafka/HBase — the official hbase 4.0.0 image
+deadlocks on arm64). It uses the released-artifact fixture instead:
+
+```sh
+cd fixture-c8
+# follow README.md: extract /app/libs from
+#   pinpointdocker/pinpoint-collector:4.0.0-metric
+# compile fixture -> run on 127.0.0.1:18091 (-Xmx128m) -> probe
+python3 -I gen_payload.py --mib 8 --out /tmp/pb8.pb
+python3 -I probe.py
+python3 ../../poc/poc_f4_otlp_metric_unbounded_body.py \
+  --base http://127.0.0.1:18091 --with-control --confirm-authorised
+```
+
+`settings.xml` is only the Maven mirror used behind the Great Firewall; drop it elsewhere.

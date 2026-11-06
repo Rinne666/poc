@@ -1,4 +1,4 @@
-# Report — pinpoint-poc findings F1, F2
+# Report — pinpoint-poc findings F1–F4
 
 ## Environment (exact)
 
@@ -91,6 +91,91 @@ Unauthenticated reconnaissance value: internal package structure, security-filte
 
 ## Limitations of the whole lab run
 
-- `pinpointdocker/pinpoint-hbase:4.0.0` HMaster deadlocks during `RegionOpenAndInit-TraceV2` region creation on linux/arm64 (log freezes mid-initialization with the process alive; reproduced across three restarts, with `HBASE_HEAPSIZE=1500` + G1GC). Consequences: the collector could not run its realtime command service (it binds `EmptyCommandService` when HBase-dependent startup fails), so the collector-side observations recorded in the audit (actuator env disclosure, `/channelz`, log-level write) were captured against a collector started before HBase finalized; they are deployment-facing observations and are excluded from this project's findings per the repository scope filter.
+- `pinpointdocker/pinpoint-hbase:4.0.0` HMaster deadlocks during `RegionOpenAndInit-TraceV2` region creation on linux/arm64 (log freezes mid-initialization with the process alive; reproduced across three restarts, with `HBASE_HEAPSIZE=1500` + G1GC). Consequences: the collector could not run its realtime command service (it binds `EmptyCommandService` when HBase-dependent startup fails), so the collector-side observations recorded in the audit (actuator env disclosure, `/channelz`, log-level write) were captured against a collector started before HBase finalized; they were initially recorded as deployment-facing observations outside this project's scope; on 2026-11-06 the maintainer revised that scope decision and the two collector findings are documented here as F3 and F4.
 - The web findings above do not depend on HBase.
 - Only loopback-mapped ports were used; no third-party or shared target was touched.
+
+---
+
+## F3 — collector `/monitor` actuator served without authentication (RUNTIME_VERIFIED)
+
+### Expected security boundary
+
+The collector's operator surfaces require the operator credential: `AuthInterceptor`
+(`collector/.../manage/controller/AuthInterceptor.java`) gates `/admin/**` with
+`collector.admin.password`. The actuator surface on the SAME port (8081) inherits no gate:
+`AdminMvcConfigure.java` line 42 binds the interceptor to `/admin/**` only, and the
+collector declares no Spring Security anywhere (two zero-match searches over the module:
+filter-chain classes and `spring-security` dependencies).
+
+### Reproduction
+
+`python3 poc/poc_f3_collector_monitor_unauthenticated.py --collector-base http://127.0.0.1:8081 --confirm-authorised`
+against the compose stack in `env/` (collector service). Full session:
+`evidence/f3-poc-run-2026-11-06.txt`. Four assertions, all green:
+
+1. anonymous `GET /monitor/env` → 200, 40,145 bytes, planted
+   `verify-admin-pw` / `verify-dummy-pw` / `verify-redis-pw` verbatim;
+2. anonymous `GET /monitor/loggers/<name>` → 200;
+3. anonymous `POST {"configuredLevel":"DEBUG"}` → 204, confirmed by anonymous read,
+   reverted to INFO;
+4. negative control: same client `GET /admin/enableAccess` → 401/403.
+
+Impact, CVSS and remediation: `submission.json` F3 (vector
+`CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:L` = 8.2 High). Not demonstrated: port-8081
+external routability is operator-dependent; `pause` is listed but does not resolve (404).
+
+## F4 — OTLP metric endpoint buffers unbounded request bodies (RUNTIME_VERIFIED via released-artifact fixture)
+
+### Expected security boundary
+
+The release ships admission control for OTLP/HTTP ingestion — 4 MiB per request, 256 MiB
+in flight, 64 concurrent, 503 + Retry-After beyond — registered for `/v1/traces`
+(`OtlpTraceCollectorHttpModule.java`) and for the log endpoint
+(`OtlpLogCollectorHttpModule.java`). The third member of the family, `POST
+/opentelemetry` (`OpenTelemetryMetricController.java` line 54), has none: three distinct
+zero-match searches over the `otlpmetric` module find no filter, no budget property, no
+registration. The module is enabled by shipped default in the collector starter.
+
+### Method (stated honestly)
+
+The full metric stack (Pinot/Kafka/HBase) could not run in the lab — the official
+`pinpoint-hbase:4.0.0` image deadlocks on arm64 (see Limitations). Verification therefore
+used a fixture assembled from the RELEASED `pinpoint-collector:4.0.0-metric` jars: real
+controller, real protobuf converter, real sibling filter, embedded Tomcat, `-Xmx128m`,
+bound to 127.0.0.1, with ONLY the storage service stubbed — the claim lives between the
+socket and the parsed message. Full recipe: `env/fixture-c8/README.md`; sources and
+payload generator included.
+
+### Observations
+
+`evidence/f4-runtime-differential.txt`:
+
+- 1/8/32/64 MiB valid `ExportMetricsServiceRequest` bodies to `/opentelemetry` → all 200
+  (no 413/503 at any size); a single 64 MiB request drives heap to ~88% of the 128 MiB
+  ceiling;
+- 3 × 32 MiB concurrent → two HTTP 500s, `OutOfMemoryError: Java heap space` logged with
+  the stack inside `ExportMetricsServiceRequest$Builder.mergeFrom` → `Arrays.copyOfRange`
+  (the parse itself);
+- control: the identical 8 MiB body to `/v1/traces` in the same process → 413.
+
+CVSS `CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H` = 7.5 High; band note (a rating body
+weighting internal service position may read 5.9–6.5 Medium) is recorded in the audit
+advisory. The PoC script itself is detection-only (one 8 MiB body, no heap escalation);
+the OOM step was performed only inside the researcher's own fixture process.
+
+---
+
+## Disclosure state (2026-11-06)
+
+| Finding | VulDB | Vendor (pinpoint-apm) | Public PR gate |
+|---|---|---|---|
+| F1 | submitted 2026-11-06, id 1077611, status Analysis | NOT contacted | closed (rule 10) |
+| F2 | submitted 2026-11-06, id 1077621, status Analysis | NOT contacted | closed (rule 10) |
+| F3 | form staged 2026-11-06, not submitted | NOT contacted | closed |
+| F4 | submission not yet drafted | NOT contacted | closed |
+
+`disclosure.status` remains `NOT_REPORTED` at the project level because the vendor has
+been contacted for none of the findings; per-finding `reporting` records in
+`submission.json` carry the CNA states above. Publication requires the maintainer's
+recorded approval per AGENTS.md rules 10 and 20-23.

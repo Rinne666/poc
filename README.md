@@ -20,7 +20,7 @@ states its own disclosure.
 | Project | State | Consequence for an operator |
 |---|---|---|
 | `piwigo-poc` | NOT_REPORTED; vendor has not been contacted as of this submission | treat as live; see `piwigo-poc/README.md` and `piwigo-poc/submission.json` |
-| `pinpoint-poc` | NOT_REPORTED; vendor has not been contacted as of this submission | treat as live; see `pinpoint-poc/README.md` and `pinpoint-poc/submission.json` |
+| `pinpoint-poc` | vendor NOT contacted; F1/F2 submitted to VulDB (1077611, 1077621 — Analysis), F3 form staged, F4 not yet drafted; see per-finding `reporting` records | treat as live; see `pinpoint-poc/README.md` and `pinpoint-poc/submission.json` |
 
 This repository is public. That was a deliberate choice by the maintainer of this repository, made
 to support a CNA submission once vendor contact is recorded. Until then, the material here is

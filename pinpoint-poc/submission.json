@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "vendor": "Naver / pinpoint-apm",
-  "product": "Pinpoint APM (pinpoint-web)",
+  "product": "Pinpoint APM (pinpoint-web + pinpoint-collector)",
   "upstreamUrl": "https://github.com/pinpoint-apm/pinpoint",
-  "testedVersion": "4.0.1-SNAPSHOT (source) / pinpointdocker/pinpoint-web:4.0.0 (Docker runtime target)",
+  "testedVersion": "4.0.1-SNAPSHOT (source) / pinpointdocker/pinpoint-web:4.0.0 and pinpoint-collector:4.0.0 (Docker runtime targets) / pinpoint-collector:4.0.0-metric jars (F4 fixture)",
   "testedCommit": "282c9a6523e90088ebdc2231dfaf0daa8aa0103d",
   "disclosure": {
     "status": "NOT_REPORTED",
-    "vendorContact": "NOT_YET_CONTACTED",
+    "vendorContact": "NOT_YET_CONTACTED — no message sent to pinpoint-apm as of 2026-11-06. F1/F2 have been submitted to VulDB (see per-finding reporting); VulDB moderation is in progress. Per AGENTS.md rule 10 the public-PR gate stays closed until the vendor is notified and publication is approved.",
     "publicationApproved": false,
     "publicationApproval": ""
   },
@@ -31,7 +31,14 @@
         "evidence/f1-differential-admin-access.txt"
       ],
       "cvssVector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:L",
-      "cveId": null
+      "cveId": null,
+      "reporting": {
+        "cna": "VulDB",
+        "submitId": "1077611",
+        "submittedAt": "2026-11-06",
+        "state": "Analysis (moderation queue)",
+        "vendorContacted": false
+      }
     },
     {
       "id": "F2",
@@ -51,7 +58,66 @@
         "evidence/f2-api-public-error-raw.json"
       ],
       "cvssVector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
-      "cveId": null
+      "cveId": null,
+      "reporting": {
+        "cna": "VulDB",
+        "submitId": "1077621",
+        "submittedAt": "2026-11-06",
+        "state": "Analysis (moderation queue)",
+        "vendorContacted": false
+      }
+    },
+    {
+      "id": "F3",
+      "slug": "pinpoint-collector-monitor-actuator-unauthenticated",
+      "title": "Collector serves Spring Boot actuator endpoints (env/configprops with show-values: always, writable loggers) under /monitor on its main HTTP port 8081 with no authentication, while the same application password-gates /admin/** on the same port",
+      "cwe": "CWE-306",
+      "proofLevel": "RUNTIME_VERIFIED",
+      "readyForCnaReview": true,
+      "preconditions": "Stock deployment of the collector (exposure list, show-values: always and loggers access: unrestricted are shipped defaults in collector/src/main/resources/application.yml and collector-starter/src/main/resources/application.yml). Attacker needs only network reachability to collector HTTP port 8081; no account, no operator misconfiguration. The vendor's own quickstart maps 8081 and configures path-mapping.health=l7check, indicating the port is meant to be reachable by infrastructure.",
+      "positiveControl": "Anonymous GET /monitor/env returned HTTP 200, 40,145 bytes, with the researcher-planted collector.admin.password, JDBC password and Redis password appearing verbatim (verify-admin-pw / verify-dummy-pw / verify-redis-pw), across all property sources including command-line -D values. Anonymous GET /monitor/loggers/<name> returned 200; anonymous POST {\"configuredLevel\":\"DEBUG\"} returned 204 and the change was confirmed by a second anonymous read (configuredLevel DEBUG), then reverted to INFO. All credentials in evidence are planted dummies.",
+      "negativeControl": "The same anonymous client, same port, requested /admin/enableAccess and was refused (401/403 by AuthInterceptor) — the gate exists, only for the other surface. pause is listed in exposure.include but does not resolve on the shipped collector (POST /monitor/pause 404, absent from the /monitor link list).",
+      "observedImpact": "Unauthenticated disclosure of every secret held in the collector process environment — including the admin password that unlocks the gated /admin/** surface on the same port, and the database/cache credentials the collector uses — plus an unauthenticated runtime log-level write.",
+      "notDemonstrated": "Not demonstrated: external routability of port 8081 is operator- and network-dependent; no destructive /admin operation was attempted with the read password; no released-version sweep beyond the 4.0.0 image (the exposure block entered with commit 8264ec0659, first released in v3.1.0, per the full-history trace in the audit notes).",
+      "poc": "poc/poc_f3_collector_monitor_unauthenticated.py",
+      "evidence": [
+        "evidence/f3-poc-run-2026-11-06.txt"
+      ],
+      "cvssVector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:L",
+      "cveId": null,
+      "reporting": {
+        "cna": "VulDB",
+        "submitId": null,
+        "submittedAt": null,
+        "state": "form staged 2026-11-06, NOT submitted",
+        "vendorContacted": false
+      }
+    },
+    {
+      "id": "F4",
+      "slug": "pinpoint-otlp-metric-endpoint-unbounded-request-body",
+      "title": "OTLP metric ingestion POST /opentelemetry buffers and parses unauthenticated request bodies with no size, in-flight or concurrency bound, while the sibling OTLP/HTTP endpoints /v1/traces and /v1/logs in the same release enforce a 4 MiB per-request cap, a 256 MiB in-flight budget and a 64-request gate",
+      "cwe": "CWE-770",
+      "proofLevel": "RUNTIME_VERIFIED",
+      "readyForCnaReview": true,
+      "preconditions": "Stock deployment: the module is enabled by shipped default in collector-starter/src/main/resources/application.yml (pinpoint.modules.collector.otlpmetric.enabled: true). Attacker needs only network reachability to the collector HTTP port; no account. Verification method (stated honestly): a fixture process assembled from the RELEASED 4.0.0-metric artifacts (real OpenTelemetryMetricController, real ProtobufHttpMessageConverter, real OtlpTraceHttpAdmissionFilter as the sibling control, embedded Tomcat, -Xmx128m, bound to 127.0.0.1 only) with only the storage service stubbed — the claim lives between the socket and the parsed message, which is unstubbed. Recipe: env/fixture-c8/README.md.",
+      "positiveControl": "Valid ExportMetricsServiceRequest bodies (pure-stdlib encoder, wire-checked) of 1/8/32/64 MiB were each accepted with HTTP 200 — no 413, no 503, no Retry-After at any size; a single 64 MiB request drove live heap from ~46 MiB to ~113 MiB of the 128 MiB ceiling. Three concurrent 32 MiB requests produced two HTTP 500s with java.lang.OutOfMemoryError: Java heap space logged with the stack inside ExportMetricsServiceRequest$Builder.mergeFrom -> Arrays.copyOfRange — the OOM occurs in the parse itself, upstream of any storage step.",
+      "negativeControl": "The identical 8 MiB body sent to /v1/traces in the same fixture process is answered HTTP 413 by the shipped OtlpTraceHttpAdmissionFilter (4 MiB cap) — same server, same port, same bytes: one path refuses, the other buffers fully. 1 MiB to /v1/traces returns 200 (admitted), confirming the control path is live rather than 404.",
+      "observedImpact": "An unauthenticated client chooses how much collector heap a request consumes; concurrent oversized bodies exhaust the JVM heap and stop the collector's ingestion and admin work for every other client.",
+      "notDemonstrated": "Not demonstrated: the production -Xmx threshold at which real deployments OOM (the fixture deliberately used a small ceiling); the full collector stack with real Pinot/Kafka could not be started in the lab (pinpoint-hbase:4.0.0 HMaster deadlocks on arm64 — see Limitations); the synthetic payloads omit the pinpoint.agentId resource attribute, so the mapper skips the datapoints (savedDatapoints=0) — irrelevant to the observation, which is in the parse layer; no released-version sweep beyond the 4.0.0-metric artifacts (module introduced by commit 7f5df185c9, first released in v3.0.1).",
+      "poc": "poc/poc_f4_otlp_metric_unbounded_body.py",
+      "evidence": [
+        "evidence/f4-runtime-differential.txt"
+      ],
+      "cvssVector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+      "cveId": null,
+      "reporting": {
+        "cna": null,
+        "submitId": null,
+        "submittedAt": null,
+        "state": "submission not yet drafted",
+        "vendorContacted": false
+      }
     }
   ]
 }

