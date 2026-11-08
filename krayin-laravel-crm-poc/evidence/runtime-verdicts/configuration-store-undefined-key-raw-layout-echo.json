@@ -1,0 +1,53 @@
+{
+  "fingerprint": "configuration-store-undefined-key-raw-layout-echo",
+  "status": "reproduced",
+  "observations": [
+    "PERSISTED undefined key code=\"general.content.custom_scripts.custom_javascript\" value=\"<b>VERIFYCFGJS1794106653<\\/b>\"",
+    "PERSISTED undefined key code=\"general.content.custom_scripts.custom_css\" value=\"VERIFYCFGCSS1794106653 <\\/style><b>VERIFYCFGCSS17941066532<\\/b>\"",
+    "PERSISTED undefined key code=\"general.content.custom_scripts.custom_nokey_1794106655\" value=\"VERIFYCFGNOKEY1794106653\"",
+    "getConfigField for the key returned null (undefined key)",
+    "POST /admin/configuration/general/content status=302",
+    "Login page (anonymous layout) echo: custom_javascript marker present=true (raw <b> markup=true, escaped=false); custom_css marker present=true (raw </style> breakout markup=true)",
+    "Authenticated admin dashboard echo: custom_css marker present=true (raw </style> breakout markup=true)",
+    "Echo context on login page: event) {\n            app.mount(\"#app\");\n        });\n    </script>\n\n    \n\n    <script type=\"text/javascript\">\n        <b>VERIFYCFGJS1794106653</b>\n    </script>\n<script type=\"text/javascript\">\nvar phpdebugbar = new PhpDebu",
+    "DECISIVE: undefined configuration keys are stored verbatim and echoed unescaped into <script>/<style> contexts of anonymous and authenticated pages",
+    "BROWSER EXECUTION CONFIRMED (2026-11-08, real Chromium via in-app browser against http://127.0.0.1:8000): the executing-class benign payload document.title='VF3EXECUTED' was stored through the same configuration save endpoint and the unauthenticated login page EXECUTED it in a live browser session — the tab title changed from 'Sign In' to 'VF3EXECUTED' (alert()-variant also fired interactively on the earlier load). The echo context was captured verbatim: <script type=\"text/javascript\"> alert('VF3VERIFY') // VF3RAW </script> inside the anonymous layout, i.e. raw output inside a script block on a page every unauthenticated visitor loads. Fixtures cleaned afterwards (core_config row deleted, login page verified clean)."
+  ],
+  "errors": [],
+  "proposed_verdict": "confirmed",
+  "proposed_severity": "high",
+  "observed_result_for_record": "Reproduced on the live admin: POSTing /admin/configuration/general/content as admin with keys[] declaring general.content.custom_scripts.{custom_javascript,custom_css} (and a third nested key posted without any keys[] entry) persisted ALL THREE undefined keys verbatim into core_config — getConfigField() returns null for them, so sanitizeConfigValue applies no HTMLPurifier pass and no validation rule rejected them. The login page (anonymous layout, no session) echoed the stored custom_javascript value unescaped inside its <script> element and the custom_css value unescaped inside <style>, and the authenticated admin dashboard echoed custom_css raw inside <style> (the </style><b> marker survived as literal markup, proving no output encoding; with a real payload the style-context breakout would execute script). Markers were inert dummy strings; stored rows deleted after observation.",
+  "persisted_rows": [
+    {
+      "id": 2,
+      "code": "general.content.custom_scripts.custom_javascript",
+      "value": "<b>VERIFYCFGJS1794106653</b>",
+      "ours": true
+    },
+    {
+      "id": 3,
+      "code": "general.content.custom_scripts.custom_css",
+      "value": "VERIFYCFGCSS1794106653 </style><b>VERIFYCFGCSS17941066532</b>",
+      "ours": true
+    },
+    {
+      "id": 4,
+      "code": "general.content.custom_scripts.custom_nokey_1794106655",
+      "value": "VERIFYCFGNOKEY1794106653",
+      "ours": true
+    }
+  ],
+  "login_echo": {
+    "js_present": true,
+    "js_raw": true,
+    "js_escaped": false,
+    "css_present": true,
+    "css_raw": true
+  },
+  "dashboard_echo": {
+    "css_present": true,
+    "css_raw": true
+  },
+  "notes": "Payloads were inert markers (<b>VERIFYCFGJS</b>, VERIFYCFGCSS </style><b>...); no real script content used.",
+  "browser_execution": "BROWSER EXECUTION CONFIRMED (2026-11-08, real Chromium via in-app browser against http://127.0.0.1:8000): the executing-class benign payload document.title='VF3EXECUTED' was stored through the same configuration save endpoint and the unauthenticated login page EXECUTED it in a live browser session — the tab title changed from 'Sign In' to 'VF3EXECUTED' (alert()-variant also fired interactively on the earlier load). The echo context was captured verbatim: <script type=\"text/javascript\"> alert('VF3VERIFY') // VF3RAW </script> inside the anonymous layout, i.e. raw output inside a script block on a page every unauthenticated visitor loads. Fixtures cleaned afterwards (core_config row deleted, login page verified clean)."
+}

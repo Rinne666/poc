@@ -1,0 +1,100 @@
+1: # CHANGELOG for 2.2
+2:
+3: This changelog consists of the bug & security fixes and new features being included in the releases listed below.
+4:
+5: ## **v2.2.8 (5th of Nov 2026)**
+6:
+7: * [security] Fixed Sercurity issue.
+8:
+9: ## **v2.2.7 (16th of Oct 2026)**
+10:
+11: * [fixed] Fixed a web form submission creating a duplicate contact when the address differed only in case.
+12:
+13: * [fixed] Fixed an empty web form submission answering with a server error.
+14:
+15: * [feature] Added quotes to Quick Add.
+16:
+17: * [fixed] Fixed creating a quote without line items failing with `Undefined array key "items"`. 
+18:
+19: * [fixed] Fixed the leads settings control moving when switching between the kanban and table views.
+20:
+21: * [feature] Added notifications.
+22:
+23: * [feature] Update data filter at dashboard.
+24:
+25: * [feature] Mega Search Will open into modal.
+26:
+27: * [feature] Added a per-section record count to the mega search. 
+28:
+29: * [fixed] Fixed the lookup field's search field.
+30:
+31: * [fixed] Fixed saving a contact with the phone left blank answering with a server error.
+32:
+33: * [fixed] Fixed picking a lead on a quote leaving the quote unsaveable and unlinked from that lead.
+34:
+35: * [fixed] Fixed picking a lead on a quote replacing the existing items instead of adding to them.
+36:
+37: * [fixed] Fixed a lead's page erroring when its contact had no phone number.
+38:
+39: * [fixed] Fixed removing a quote from a lead failing with no such lead.
+40:
+41: * [fixed] Fixed a lead and its quote not holding the same products.
+42:
+43: * [fixed] Fixed opening a mail outside drafts erroring under any locale but English.
+44:
+45: * [fixed] Added the missing Spanish and Brazilian Portuguese translations.
+46:
+47: * [fixed] Fixed the language file test passing while a translation was missing.
+48:
+49: * [security] Improved in Security.
+50:
+51: ## **v2.2.6 (10th of Sept 2026)**
+52:
+53: * [security] Improved in Security.
+54:
+55: * [feature] Added MariaDB support.
+56:
+57: * [feature] Added customizable lead card information. Datagrid columns and Kanban lead card fields can now be chosen per user through new column and card settings components.
+58:
+59: * [feature] Added PDF export for dashboard reports, available from the dashboard alongside the existing views.
+60:
+61: * [feature] Added Japanese (`ja`) translation for the Admin, Installer, GoogleContact and WebForm packages.
+62:
+63: * [feature] Added an associated group column to the users grid in Settings > Users.
+64:
+65: * [fixed] Fixed duplicated activity handling across the lead, person, product and warehouse activity controllers by consolidating the shared logic, and added the missing Japanese activity translations.
+66:
+67: * [fixed] Fixed the data transfer import queue processing inconsistently, and corrected the form control group rendering used by the import screen.
+68:
+69: * [fixed] Fixed the Google Contact settings screen erroring when no account was connected, and added the corresponding translations.
+70:
+71: * [fixed] Fixed the mail ACL mapping so email actions are checked against the correct permission.
+72:
+73: * [fixed] Fixed people created from a lead being saved with a null `user_id`, which hid them from the person listing for users restricted to group or individual data scope. They are now assigned to the lead owner, falling back to the acting user.
+74:
+75: * [fixed] Fixed the stage API resource omitting `lead_pipeline_id`, so stages could not be matched to their pipeline.
+76:
+77: * [fixed] Fixed email attachment downloads being blocked by the URL sanitizer middleware.
+78:
+79: * [fixed] Added the missing Chinese translations for the users grid's associated group column.
+80:
+81: * [fixed] Fixed flaky admin end-to-end tests around organization owner lookup, lead creation and rich-text comment fields.
+82:
+83: * [fixed] Fixed creating or updating a lead failing with a server error (HTTP 500) when a product row was submitted without a `product_id`. The request is now rejected with a validation error.
+84:
+85: * [fixed] Fixed the expected close date of a lead being cleared when its stage was changed (Kanban drag and drop, the stage bar, won/lost) or another field was edited inline from the lead view.
+86:
+87: * [security] Fixed user and role listings not being scoped by the acting user's data scope, which allowed users to see records outside their own group. Roles now track their creator via a new `created_by` column.
+88:
+89: * [security] Hardened the admin ACL middleware to fail closed. An administrative route with no ACL mapping is now denied rather than allowed, inheriting the permission of its nearest mapped ancestor, with a narrow allow-list for authentication, self-service account management and generic UI helpers.
+90:
+91: * [security] Removed SVG from the allowed upload types for the admin logo and favicon configuration fields.
+92:
+93: * [security] Fixed a security issue configuration file uploads.
+94:
+95: * [security] Fixed a security issue activity notes and the TinyMCE editor component.
+96:
+97: * [security] Fixed a security issue in the web form embed view.
+98:
+99: * [security] Fixed a security issue in attribute downloads.
+100:

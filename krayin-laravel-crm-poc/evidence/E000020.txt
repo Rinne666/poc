@@ -1,0 +1,26 @@
+20:     /**
+21:      * Create pipeline.
+22:      *
+23:      * @return Activity
+24:      */
+25:     public function create(array $data)
+26:     {
+27:         $activity = parent::create($data);
+28:
+29:         if (isset($data['file'])) {
+30:             app(FileRepository::class)->create([
+31:                 'name' => $data['name'] ?? $data['file']->getClientOriginalName(),
+32:                 'path' => $data['file']->store('activities/'.$activity->id),
+33:                 'activity_id' => $activity->id,
+34:             ]);
+35:         }
+36:
+37:         if (! isset($data['participants'])) {
+38:             return $activity;
+39:         }
+40:
+41:         foreach ($data['participants']['users'] ?? [] as $userId) {
+42:             $activity->participants()->create([
+43:                 'user_id' => $userId,
+44:             ]);
+45:         }

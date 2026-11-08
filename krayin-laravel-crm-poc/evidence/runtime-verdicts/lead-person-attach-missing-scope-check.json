@@ -1,0 +1,20 @@
+{
+    "fingerprint": "lead-person-attach-missing-scope-check",
+    "status": "reproduced",
+    "observations": [
+        "fixtures: userA id=6 role permissions=['dashboard','leads.view'] view_permission=individual; userB id=7 role permissions=['dashboard','contacts.persons.view'] view_permission=individual",
+        "person P id=13 owned by userB (user_id=7), emails=[{\"value\":\"l1fix.b.person.1794106304@example.com\",\"label\":\"work\"}] contact_numbers=[{\"value\":\"555-0100\",\"label\":\"phone\"}]",
+        "lead L_A id=5 owned by userA; lead L_B id=6 owned by userB (control)",
+        "control1: userA GET /admin/contacts/persons/view/13 (person owned by userB) => HTTP 401 (expected 401; direct person reads are scope-checked)",
+        "control2: userA PUT /admin/leads/attributes/edit/6 (lead owned by userB) with person[id]=13 => HTTP 401 (lead-owner scope check enforced)",
+        "attack1: userA PUT /admin/leads/attributes/edit/5 (own lead) with person[id]=13 => HTTP 200, leads.person_id now=13 (person owner userB never checked)",
+        "sink1: userA GET /admin/leads/view/5 => HTTP 200; lead-view HTML contains personB secret email=true, phone=true",
+        "sink2: userA GET /admin/leads/get (kanban LeadResource) => HTTP 200; JSON contains personB email=true, phone=true",
+        "attack2: userA PUT same endpoint with bare mass-assignable person_id=13 (no person[] branch at all) => HTTP 200, leads.person_id now=13"
+    ],
+    "errors": [],
+    "proposed_verdict": "confirmed",
+    "proposed_severity": "high",
+    "observed_result_for_record": "On the local Docker install (krayin @ ed6deeb), a staff user restricted to view_permission=individual with only the leads.view ACL key successfully issued PUT /admin/leads/attributes/edit/<own-lead-id> with person[id]=<another user's person id>; the request returned HTTP 200 and leads.person_id was persisted to the out-of-scope person (user_id of a different principal). The subsequent GET /admin/leads/view/<lead-id> HTML and GET /admin/leads/get kanban JSON both rendered that person's email address and contact number, while the same user received HTTP 401 when opening the person directly via /admin/contacts/persons/view/<id> and HTTP 401 when targeting the same payload at another user's lead. The bare mass-assignable person_id=<id> request field (no person[] branch) also persisted the link. Fixture users/lead/person rows created for the test were deleted afterwards.",
+    "notes": "Root cause matches source: LeadRepository::update()/create() resolve person[id] via personRepository->findOrFail() with no bouncer() scope predicate, and Lead::$fillable includes person_id. No deployment-only compensating layer observed (no middleware/policy intercepted the writes)."
+}

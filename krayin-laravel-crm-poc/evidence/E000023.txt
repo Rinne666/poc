@@ -1,0 +1,16 @@
+25:      */
+26:     public function prepareQueryBuilder(): Builder
+27:     {
+28:         $queryBuilder = DB::table('persons')
+29:             ->addSelect(
+30:                 'persons.id',
+31:                 'persons.name as person_name',
+32:                 'persons.emails',
+33:                 'persons.contact_numbers',
+34:                 'organizations.name as organization',
+35:                 'organizations.id as organization_id',
+36:                 'tags.name as tag_name'
+37:             )
+38:             ->leftJoin('organizations', 'persons.organization_id', '=', 'organizations.id')
+39:             ->leftJoin('person_tags', 'persons.id', '=', 'person_tags.person_id')
+40:             ->leftJoin('tags', 'tags.id', '=', 'person_tags.tag_id')

@@ -1,0 +1,18 @@
+78:                                 skin: self.currentSkin,
+79:                                 content_css: self.currentContentCSS,
+80:                             };
+81:
+82:                             const image_upload_handler = (blobInfo, progress) => new Promise((resolve, reject) => {
+83:                                 self2.uploadImageHandler(config, blobInfo, resolve, reject, progress);
+84:                             });
+85:
+86:                             tinymce.init({
+87:                                 ...config,
+88:
+89:                                 file_picker_callback: function(cb, value, meta) {
+90:                                     self2.filePickerCallback(config, cb, value, meta);
+91:                                 },
+92:
+93:                                 images_upload_handler: image_upload_handler,
+94:                             });
+95:                         },

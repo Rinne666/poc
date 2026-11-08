@@ -1,0 +1,24 @@
+1: <?php
+2:
+3: use Illuminate\Support\Facades\Route;
+4: use Webkul\Admin\Http\Controllers\Activity\ActivityController;
+5:
+6: Route::controller(ActivityController::class)->prefix('activities')->group(function () {
+7:     Route::get('', 'index')->name('admin.activities.index');
+8:
+9:     Route::get('get', 'get')->name('admin.activities.get');
+10:
+11:     Route::post('create', 'store')->name('admin.activities.store');
+12:
+13:     Route::get('edit/{id}', 'edit')->name('admin.activities.edit');
+14:
+15:     Route::put('edit/{id}', 'update')->name('admin.activities.update');
+16:
+17:     Route::get('download/{id}', 'download')->name('admin.activities.file_download');
+18:
+19:     Route::delete('{id}', 'destroy')->name('admin.activities.delete');
+20:
+21:     Route::post('mass-update', 'massUpdate')->name('admin.activities.mass_update');
+22:
+23:     Route::post('mass-destroy', 'massDestroy')->name('admin.activities.mass_delete');
+24: });

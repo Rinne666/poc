@@ -1,0 +1,176 @@
+160:             ->where(function ($query) {
+161:                 $query->whereIn('code', ['description', 'title', 'lead_value', 'lead_type_id', 'lead_source_id', 'expected_close_date', 'user_id'])
+162:                     ->orWhere('is_user_defined', 1);
+163:             })
+164:             ->orderBy('sort_order', 'asc')
+165:             ->get();
+166:
+167:         return view('admin::leads.create', compact('attributes'));
+168:     }
+169:
+170:     /**
+171:      * Store a newly created resource in storage.
+172:      */
+173:     public function store(LeadForm $request): RedirectResponse|JsonResponse
+174:     {
+175:         Event::dispatch('lead.create.before');
+176:
+177:         $data = $request->all();
+178:
+179:         $data['status'] = 1;
+180:
+181:         if (request()->has('quick_add') && empty($data['user_id'])) {
+182:             $data['user_id'] = auth()->guard('user')->user()->id;
+183:         }
+184:
+185:         if (! empty($data['lead_pipeline_stage_id'])) {
+186:             $stage = $this->stageRepository->findOrFail($data['lead_pipeline_stage_id']);
+187:
+188:             $data['lead_pipeline_id'] = $stage->lead_pipeline_id;
+189:         } else {
+190:             if (empty($data['lead_pipeline_id'])) {
+191:                 $pipeline = $this->pipelineRepository->getDefaultPipeline();
+192:
+193:                 $data['lead_pipeline_id'] = $pipeline->id;
+194:             } else {
+195:                 $pipeline = $this->pipelineRepository->findOrFail($data['lead_pipeline_id']);
+196:             }
+197:
+198:             $stage = $pipeline->stages()->first();
+199:
+200:             $data['lead_pipeline_stage_id'] = $stage->id;
+201:         }
+202:
+203:         if (in_array($stage->code, ['won', 'lost'])) {
+204:             $data['closed_at'] = Carbon::now();
+205:         }
+206:
+207:         $lead = $this->leadRepository->create($data);
+208:
+209:         Event::dispatch('lead.create.after', $lead);
+210:
+211:         if (request()->ajax()) {
+212:             return response()->json([
+213:                 'message' => trans('admin::app.leads.create-success'),
+214:                 'data' => new LeadResource($lead),
+215:             ]);
+216:         }
+217:
+218:         session()->flash('success', trans('admin::app.leads.create-success'));
+219:
+220:         if (! empty($data['lead_pipeline_id'])) {
+221:             $params['pipeline_id'] = $data['lead_pipeline_id'];
+222:         }
+223:
+224:         return redirect()->route('admin.leads.index', $params ?? []);
+225:     }
+226:
+227:     /**
+228:      * Show the form for editing the specified resource.
+229:      */
+230:     public function edit(int $id): View
+231:     {
+232:         $attributes = $this->attributeRepository
+233:             ->where('entity_type', 'leads')
+234:             ->where(function ($query) {
+235:                 $query->whereIn('code', ['description', 'title', 'lead_value', 'lead_type_id', 'lead_source_id', 'expected_close_date', 'user_id'])
+236:                     ->orWhere('is_user_defined', 1);
+237:             })
+238:             ->orderBy('sort_order', 'asc')
+239:             ->get();
+240:
+241:         $lead = $this->leadRepository->findOrFail($id);
+242:
+243:         $this->preventUnauthorizedAccess($lead->user_id);
+244:
+245:         return view('admin::leads.edit', compact('lead', 'attributes'));
+246:     }
+247:
+248:     /**
+249:      * Display a resource.
+250:      */
+251:     public function view(int $id)
+252:     {
+253:         $lead = $this->leadRepository->findOrFail($id);
+254:
+255:         $userIds = bouncer()->getAuthorizedUserIds();
+256:
+257:         if (
+258:             $userIds
+259:             && ! in_array($lead->user_id, $userIds)
+260:         ) {
+261:             return redirect()->route('admin.leads.index');
+262:         }
+263:
+264:         return view('admin::leads.view', compact('lead'));
+265:     }
+266:
+267:     /**
+268:      * Update the specified resource in storage.
+269:      */
+270:     public function update(LeadForm $request, int $id): RedirectResponse|JsonResponse
+271:     {
+272:         $this->preventUnauthorizedAccess($this->leadRepository->findOrFail($id)->user_id);
+273:
+274:         Event::dispatch('lead.update.before', $id);
+275:
+276:         $data = $request->all();
+277:
+278:         if (isset($data['lead_pipeline_stage_id'])) {
+279:             $stage = $this->stageRepository->findOrFail($data['lead_pipeline_stage_id']);
+280:
+281:             $data['lead_pipeline_id'] = $stage->lead_pipeline_id;
+282:         } else {
+283:             $pipeline = $this->pipelineRepository->getDefaultPipeline();
+284:
+285:             $stage = $pipeline->stages()->first();
+286:
+287:             $data['lead_pipeline_id'] = $pipeline->id;
+288:
+289:             $data['lead_pipeline_stage_id'] = $stage->id;
+290:         }
+291:
+292:         $lead = $this->leadRepository->update($data, $id);
+293:
+294:         Event::dispatch('lead.update.after', $lead);
+295:
+296:         if (request()->ajax()) {
+297:             return response()->json([
+298:                 'message' => trans('admin::app.leads.update-success'),
+299:             ]);
+300:         }
+301:
+302:         session()->flash('success', trans('admin::app.leads.update-success'));
+303:
+304:         if (request()->has('closed_at')) {
+305:             return redirect()->back();
+306:         } else {
+307:             return redirect()->route('admin.leads.index', $data['lead_pipeline_id']);
+308:         }
+309:     }
+310:
+311:     /**
+312:      * Update the lead attributes.
+313:      */
+314:     public function updateAttributes(int $id)
+315:     {
+316:         $this->preventUnauthorizedAccess($this->leadRepository->findOrFail($id)->user_id);
+317:
+318:         $data = request()->all();
+319:
+320:         $attributes = $this->attributeRepository->findWhere([
+321:             'entity_type' => 'leads',
+322:             ['code', 'NOTIN', ['title', 'description']],
+323:         ]);
+324:
+325:         Event::dispatch('lead.update.before', $id);
+326:
+327:         $lead = $this->leadRepository->update($data, $id, $attributes);
+328:
+329:         Event::dispatch('lead.update.after', $lead);
+330:
+331:         return response()->json([
+332:             'message' => trans('admin::app.leads.update-success'),
+333:         ]);
+334:     }
+335:

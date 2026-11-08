@@ -1,0 +1,51 @@
+335:
+336:         Route::controller(CampaignsController::class)->prefix('campaigns')->group(function () {
+337:             Route::get('', 'index')->name('admin.settings.marketing.campaigns.index');
+338:
+339:             Route::get('events', 'getEvents')->name('admin.settings.marketing.campaigns.events');
+340:
+341:             Route::get('email-templates', 'getEmailTemplates')->name('admin.settings.marketing.campaigns.email-templates');
+342:
+343:             Route::post('', 'store')->name('admin.settings.marketing.campaigns.store');
+344:
+345:             Route::get('{id}', 'show')->name('admin.settings.marketing.campaigns.edit');
+346:
+347:             Route::put('{id}', 'update')->name('admin.settings.marketing.campaigns.update');
+348:
+349:             Route::delete('{id}', 'destroy')->name('admin.settings.marketing.campaigns.delete');
+350:
+351:             Route::post('mass-destroy', 'massDestroy')->name('admin.settings.marketing.campaigns.mass_delete');
+352:         });
+353:     });
+354:
+355:     Route::prefix('data-transfer')->group(function () {
+356:         /**
+357:          * Import routes.
+358:          */
+359:         Route::controller(ImportController::class)->prefix('imports')->group(function () {
+360:             Route::get('', 'index')->name('admin.settings.data_transfer.imports.index');
+361:
+362:             Route::get('create', 'create')->name('admin.settings.data_transfer.imports.create');
+363:
+364:             Route::post('create', 'store')->name('admin.settings.data_transfer.imports.store');
+365:
+366:             Route::get('edit/{id}', 'edit')->name('admin.settings.data_transfer.imports.edit');
+367:
+368:             Route::put('update/{id}', 'update')->name('admin.settings.data_transfer.imports.update');
+369:
+370:             Route::delete('destroy/{id}', 'destroy')->name('admin.settings.data_transfer.imports.delete');
+371:
+372:             Route::get('import/{id}', 'import')->name('admin.settings.data_transfer.imports.import');
+373:
+374:             Route::get('validate/{id}', 'validateImport')->name('admin.settings.data_transfer.imports.validate');
+375:
+376:             Route::get('start/{id}', 'start')->name('admin.settings.data_transfer.imports.start');
+377:
+378:             Route::get('link/{id}', 'link')->name('admin.settings.data_transfer.imports.link');
+379:
+380:             Route::get('index/{id}', 'indexData')->name('admin.settings.data_transfer.imports.index_data');
+381:
+382:             Route::get('stats/{id}/{state?}', 'stats')->name('admin.settings.data_transfer.imports.stats');
+383:
+384:             Route::get('download-sample/{sample?}', 'downloadSample')->name('admin.settings.data_transfer.imports.download_sample');
+385:

@@ -1,0 +1,51 @@
+1: {
+2:     "fingerprint": "configuration-store-undefined-key-raw-layout-echo",
+3:     "status": "reproduced",
+4:     "observations": [
+5:         "PERSISTED undefined key code=\"general.content.custom_scripts.custom_javascript\" value=\"<b>VERIFYCFGJS1794106653<\\/b>\"",
+6:         "PERSISTED undefined key code=\"general.content.custom_scripts.custom_css\" value=\"VERIFYCFGCSS1794106653 <\\/style><b>VERIFYCFGCSS17941066532<\\/b>\"",
+7:         "PERSISTED undefined key code=\"general.content.custom_scripts.custom_nokey_1794106655\" value=\"VERIFYCFGNOKEY1794106653\"",
+8:         "getConfigField for the key returned null (undefined key)",
+9:         "POST /admin/configuration/general/content status=302",
+10:         "Login page (anonymous layout) echo: custom_javascript marker present=true (raw <b> markup=true, escaped=false); custom_css marker present=true (raw </style> breakout markup=true)",
+11:         "Authenticated admin dashboard echo: custom_css marker present=true (raw </style> breakout markup=true)",
+12:         "Echo context on login page: event) {\n            app.mount(\"#app\");\n        });\n    </script>\n\n    \n\n    <script type=\"text/javascript\">\n        <b>VERIFYCFGJS1794106653</b>\n    </script>\n<script type=\"text/javascript\">\nvar phpdebugbar = new PhpDebu",
+13:         "DECISIVE: undefined configuration keys are stored verbatim and echoed unescaped into <script>/<style> contexts of anonymous and authenticated pages"
+14:     ],
+15:     "errors": [],
+16:     "proposed_verdict": "confirmed",
+17:     "proposed_severity": "high",
+18:     "observed_result_for_record": "Reproduced on the live admin: POSTing /admin/configuration/general/content as admin with keys[] declaring general.content.custom_scripts.{custom_javascript,custom_css} (and a third nested key posted without any keys[] entry) persisted ALL THREE undefined keys verbatim into core_config — getConfigField() returns null for them, so sanitizeConfigValue applies no HTMLPurifier pass and no validation rule rejected them. The login page (anonymous layout, no session) echoed the stored custom_javascript value unescaped inside its <script> element and the custom_css value unescaped inside <style>, and the authenticated admin dashboard echoed custom_css raw inside <style> (the </style><b> marker survived as literal markup, proving no output encoding; with a real payload the style-context breakout would execute script). Markers were inert dummy strings; stored rows deleted after observation.",
+19:     "persisted_rows": [
+20:         {
+21:             "id": 2,
+22:             "code": "general.content.custom_scripts.custom_javascript",
+23:             "value": "<b>VERIFYCFGJS1794106653</b>",
+24:             "ours": true
+25:         },
+26:         {
+27:             "id": 3,
+28:             "code": "general.content.custom_scripts.custom_css",
+29:             "value": "VERIFYCFGCSS1794106653 </style><b>VERIFYCFGCSS17941066532</b>",
+30:             "ours": true
+31:         },
+32:         {
+33:             "id": 4,
+34:             "code": "general.content.custom_scripts.custom_nokey_1794106655",
+35:             "value": "VERIFYCFGNOKEY1794106653",
+36:             "ours": true
+37:         }
+38:     ],
+39:     "login_echo": {
+40:         "js_present": true,
+41:         "js_raw": true,
+42:         "js_escaped": false,
+43:         "css_present": true,
+44:         "css_raw": true
+45:     },
+46:     "dashboard_echo": {
+47:         "css_present": true,
+48:         "css_raw": true
+49:     },
+50:     "notes": "Payloads were inert markers (<b>VERIFYCFGJS</b>, VERIFYCFGCSS </style><b>...); no real script content used."
+51: }

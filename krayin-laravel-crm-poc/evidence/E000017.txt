@@ -1,0 +1,26 @@
+300:         $attributes = $this->attributeRepository->findWhereIn('id', $massDestroyRequest->input('indices'));
+301:
+302:         foreach ($attributes as $attribute) {
+303:             $attribute = $this->attributeRepository->find($attribute->id);
+304:
+305:             if (! $attribute->is_user_defined) {
+306:                 continue;
+307:             }
+308:
+309:             Event::dispatch('settings.attribute.delete.before', $attribute->id);
+310:
+311:             $this->attributeRepository->delete($attribute->id);
+312:
+313:             Event::dispatch('settings.attribute.delete.after', $attribute->id);
+314:
+315:             $count++;
+316:         }
+317:
+318:         if (! $count) {
+319:             return response()->json([
+320:                 'message' => trans('admin::app.settings.attributes.index.mass-delete-failed'),
+321:             ], 400);
+322:         }
+323:
+324:         return response()->json([
+325:             'message' => trans('admin::app.settings.attributes.index.delete-success'),

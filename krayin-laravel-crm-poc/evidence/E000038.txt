@@ -1,0 +1,16 @@
+225:
+226:                 $data = request('persons');
+227:
+228:                 request()->request->add(['entity_type' => 'persons']);
+229:
+230:                 $data['entity_type'] = 'persons';
+231:
+232:                 $person = $this->personRepository->create($data);
+233:
+234:                 Event::dispatch('contacts.person.create.after', $person);
+235:             }
+236:         }
+237:
+238:         if ($webForm->submit_success_action == 'message') {
+239:             return response()->json([
+240:                 'message' => $webForm->submit_success_content,

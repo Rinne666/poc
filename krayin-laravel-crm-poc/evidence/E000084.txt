@@ -1,0 +1,11 @@
+25:         Route::put('edit/{id}', 'update')->name('admin.contacts.persons.update');
+26:
+27:         Route::get('search', 'search')->name('admin.contacts.persons.search');
+28:
+29:         Route::middleware(['throttle:100,60'])->delete('{id}', 'destroy')->name('admin.contacts.persons.delete');
+30:
+31:         Route::post('mass-destroy', 'massDestroy')->name('admin.contacts.persons.mass_delete');
+32:
+33:         /**
+34:          * Google Contacts export routes.
+35:          */

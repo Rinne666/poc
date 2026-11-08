@@ -1,0 +1,26 @@
+35:             ->map(fn ($column) => $column->getLabel())
+36:             ->toArray();
+37:     }
+38:
+39:     /**
+40:      * Map each row for export.
+41:      */
+42:     public function map(mixed $record): array
+43:     {
+44:         return collect($this->datagrid->getColumns())
+45:             ->filter(fn ($column) => $column->getExportable())
+46:             ->map(function ($column) use ($record) {
+47:                 $index = $column->getIndex();
+48:                 $value = $record->{$index};
+49:
+50:                 if (
+51:                     in_array($index, ['emails', 'contact_numbers'])
+52:                     && is_string($value)
+53:                 ) {
+54:                     return $this->extractValuesFromJson($value);
+55:                 }
+56:
+57:                 return $value;
+58:             })
+59:             ->toArray();
+60:     }

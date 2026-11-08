@@ -1,0 +1,16 @@
+20:                 </div>
+21:
+22:                 {!! view_render_event('admin.contact.persons.view.tags.before', ['person' => $person]) !!}
+23:
+24:                 <!-- Tags -->
+25:                 <x-admin::tags
+26:                     :attach-endpoint="route('admin.contacts.persons.tags.attach', $person->id)"
+27:                     :detach-endpoint="route('admin.contacts.persons.tags.detach', $person->id)"
+28:                     :added-tags="$person->tags"
+29:                 />
+30:
+31:                 {!! view_render_event('admin.contact.persons.view.tags.after', ['person' => $person]) !!}
+32:
+33:                 
+34:                 <!-- Title -->
+35:                 <div class="mb-4 flex flex-col gap-0.5">

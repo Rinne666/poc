@@ -1,0 +1,16 @@
+1: <?php
+2:
+3: use Illuminate\Support\Facades\Route;
+4: use Webkul\Admin\Http\Controllers\Configuration\ConfigurationController;
+5:
+6: Route::controller(ConfigurationController::class)->prefix('configuration')->group(function () {
+7:     Route::get('search', 'search')->name('admin.configuration.search');
+8:
+9:     Route::prefix('{slug?}/{slug2?}')->group(function () {
+10:         Route::get('', 'index')->name('admin.configuration.index');
+11:
+12:         Route::post('', 'store')->name('admin.configuration.store');
+13:
+14:         Route::get('{path}', 'download')->name('admin.configuration.download');
+15:     });
+16: });

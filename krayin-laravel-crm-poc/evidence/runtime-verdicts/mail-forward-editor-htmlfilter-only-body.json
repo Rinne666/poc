@@ -1,0 +1,275 @@
+{
+  "fingerprint": "mail-forward-editor-htmlfilter-only-body",
+  "status": "reproduced",
+  "observations": [
+    "STATIC [SendgridEmailProcessor stores reply behind HtmlFilter only] hits=2 (first: L102 'reply' => $this->htmlFilter->process($reply, ''),)",
+    "STATIC [view.blade.php serializes raw model (@json)] hits=4 (first: L1222 email: @json($email),)",
+    "STATIC [view.blade.php forward computed returns action.email.reply] hits=3 (first: L142 <span>@lang('admin::app.mail.view.to') @{{ email.reply_to.join(', ') }}</span>)",
+    "STATIC [view.blade.php automatic sink uses v-safe-html (control present elsewhere)] hits=1 (first: L246 v-safe-html=\"email.reply\")",
+    "STATIC [control.blade.php textarea case mounts tinymce on #reply] hits=3 (first: L103 if ($attributes->get('tinymce', false) || $attributes->get(':tinymce', false)) {)",
+    "STATIC [tinymce component init] hits=1 (first: L86 tinymce.init({)",
+    "STATIC [tinymce component has no valid_elements/sanitize hook (absence)] hits=0 (first: L- )",
+    "tinymce.init option keys: template, props, methods, document_base_url, plugins, toolbar, link_default_protocol, link_default_target, directionality, text, type — NO valid_elements/sanitize hook in the component",
+    "FILTER [data-uri-href] dangerous_survivor=true output=\"<a href=\\\"data:text/html;base64,VFZSSUZZ\\\" target=\\\"_blank\\\">VERIFY link</a>\\n\"",
+    "FILTER [data-uri-action] dangerous_survivor=true output=\"<form action=\\\"data:text/html,VF6VERIFY\\\">x</form>\\n\"",
+    "FILTER [svg-set-attributeName] dangerous_survivor=true output=\"<svg><set attributename=\\\"onmouseover\\\" to=\\\"VERIFY\\\"></set></svg>\\n\"",
+    "FILTER [svg-animate-href] dangerous_survivor=true output=\"<svg><animate attributename=\\\"href\\\" values=\\\"javascript:VERIFY\\\"></animate></svg>\\n\"",
+    "FILTER [style-element-css] dangerous_survivor=false output=\"<style></style>\\n\"",
+    "FILTER [entity-encoded-js] dangerous_survivor=false output=\"<a href=\\\"#\\\" target=\\\"_blank\\\">x</a>\\n\"",
+    "FILTER [newline-tab-in-uri] dangerous_survivor=false output=\"<a href=\\\"#\\\" target=\\\"_blank\\\">x</a>\\n\"",
+    "FILTER [control-inline-onerror] dangerous_survivor=false output=\"<img src=\\\"x\\\" />\\n\"",
+    "FILTER [control-script-tag] dangerous_survivor=false output=\"\\n\"",
+    "FILTER [control-js-uri-href] dangerous_survivor=false output=\"<a href=\\\"#\\\" target=\\\"_blank\\\">x</a>\\n\"",
+    "FILTER [control-iframe] dangerous_survivor=false output=\"\\n\"",
+    "DECISIVE: the sole control on the forward-editor content (HtmlFilter blacklist) demonstrably passes dangerous constructs on this runtime (data-uri-href, data-uri-action, svg-set-attributeName, svg-animate-href), and the forward path feeds the stored body straight into TinyMCE initial content with no DOMPurify/strip_tags layer and no editor schema config (static). Whether a survivor executes inside the TinyMCE 6.6.2 editor iframe remains a library/browser fact (not observable here).",
+    "BROWSER-PHASE ADDENDUM (2026-11-08): the filter's survivor set on this runtime was measured precisely — the SMIL construct <svg><a id=x href=\"#\"><animate attributeName=\"href\" values=\"javascript:...\"></a></svg> PASSES THROUGH HtmlFilter VERBATIM (values attribute untouched, only attribute-name lowercasing; the xlink:href/to= variants are stripped), and data:text/html URIs survive in href. The stored reply carrying these constructs was captured verbatim in the live authenticated page DOM as the editor's data source (v-email-list component data email.reply serialized via @json($email)). End-to-end editor-iframe click execution was NOT demonstrated: the thread pane renders only with ingestion-pipeline-complete fixtures (attachments/relations), so the composer did not mount for the hand-crafted row — the honest scope note stands (execution remains the library/browser fact)."
+  ],
+  "errors": [],
+  "proposed_verdict": "confirmed",
+  "proposed_severity": "medium",
+  "observed_result_for_record": "Static (container source at the deployed commit): the forward flow is exactly as claimed — EmailController@view returns the raw Email model; view.blade.php serializes it with @json($email) (:1222) and the forward computed returns action.email.reply (:1373); control.blade.php mounts x-admin::tinymce on textarea#reply; tinymce/index.blade.php runs tinymce.init with only plugins/toolbar/upload options and NO valid_elements/sanitize hook; the same field at automatic sinks IS guarded (v-safe-html at view.blade.php:246, strip_tags at DataGrid.php:472). Runtime (the sole control actually applied, HtmlFilter::process — the same call ingestion makes): the blacklist demonstrably passes dangerous constructs on this runtime — data:text/html URIs survive in both href and action, and SVG <set>/<animate attributeName=...> constructs survive intact (attribute names lowercased, which HTML parsing treats identically). Controls were correctly removed (on* attributes stripped, <script>/<iframe> removed, literal and entity-encoded javascript: URIs and newline-split javascript: rewritten to #), and the <style> element was kept but its content emptied. So the forward editor receives content that a same-origin editor iframe renders with these constructs intact. TinyMCE 6.6.2 editor-iframe execution was not observable in this environment (no browser harness; TinyMCE loaded from cdnjs) — the missing second sanitizer layer and the weak sole filter are runtime-confirmed; actual in-editor execution remains the record's stated library/browser fact.",
+  "static_results": [
+    {
+      "check": "SendgridEmailProcessor stores reply behind HtmlFilter only",
+      "file": "/opt/app/packages/Webkul/Email/src/InboundEmailProcessor/SendgridEmailProcessor.php",
+      "pattern": "htmlFilter->process",
+      "hits": [
+        {
+          "line": 102,
+          "text": "'reply' => $this->htmlFilter->process($reply, ''),"
+        },
+        {
+          "line": 121,
+          "text": "'reply' => $this->htmlFilter->process($reply, ''),"
+        }
+      ]
+    },
+    {
+      "check": "view.blade.php serializes raw model (@json)",
+      "file": "/opt/app/packages/Webkul/Admin/src/Resources/views/mail/view.blade.php",
+      "pattern": "@json(",
+      "hits": [
+        {
+          "line": 1222,
+          "text": "email: @json($email),"
+        },
+        {
+          "line": 1897,
+          "text": "email: @json($email->getAttributes()),"
+        },
+        {
+          "line": 1917,
+          "text": "this.email.person = @json($email->person);"
+        },
+        {
+          "line": 1921,
+          "text": "this.email.lead = @json($email->lead);"
+        }
+      ]
+    },
+    {
+      "check": "view.blade.php forward computed returns action.email.reply",
+      "file": "/opt/app/packages/Webkul/Admin/src/Resources/views/mail/view.blade.php",
+      "pattern": "email.reply",
+      "hits": [
+        {
+          "line": 142,
+          "text": "<span>@lang('admin::app.mail.view.to') @{{ email.reply_to.join(', ') }}</span>"
+        },
+        {
+          "line": 246,
+          "text": "v-safe-html=\"email.reply\""
+        },
+        {
+          "line": 1373,
+          "text": "return this.action.email.reply;"
+        }
+      ]
+    },
+    {
+      "check": "view.blade.php automatic sink uses v-safe-html (control present elsewhere)",
+      "file": "/opt/app/packages/Webkul/Admin/src/Resources/views/mail/view.blade.php",
+      "pattern": "v-safe-html",
+      "hits": [
+        {
+          "line": 246,
+          "text": "v-safe-html=\"email.reply\""
+        }
+      ]
+    },
+    {
+      "check": "control.blade.php textarea case mounts tinymce on #reply",
+      "file": "/opt/app/packages/Webkul/Admin/src/Resources/views/components/form/control-group/control.blade.php",
+      "pattern": "tinymce",
+      "hits": [
+        {
+          "line": 103,
+          "text": "if ($attributes->get('tinymce', false) || $attributes->get(':tinymce', false)) {"
+        },
+        {
+          "line": 121,
+          "text": "@if ($attributes->get('tinymce', false) || $attributes->get(':tinymce', false))"
+        },
+        {
+          "line": 122,
+          "text": "<x-admin::tinymce"
+        }
+      ]
+    },
+    {
+      "check": "tinymce component init",
+      "file": "/opt/app/packages/Webkul/Admin/src/Resources/views/components/tinymce/index.blade.php",
+      "pattern": "tinymce.init",
+      "hits": [
+        {
+          "line": 86,
+          "text": "tinymce.init({"
+        }
+      ]
+    },
+    {
+      "check": "tinymce component has no valid_elements/sanitize hook (absence)",
+      "file": "/opt/app/packages/Webkul/Admin/src/Resources/views/components/tinymce/index.blade.php",
+      "pattern": "valid_elements",
+      "hits": []
+    }
+  ],
+  "tinymce_options": [
+    "template",
+    "props",
+    "methods",
+    "document_base_url",
+    "plugins",
+    "toolbar",
+    "link_default_protocol",
+    "link_default_target",
+    "directionality",
+    "text",
+    "type"
+  ],
+  "filter_results": [
+    {
+      "name": "data-uri-href",
+      "input": "<a href=\"data:text/html;base64,VFZSSUZZ\">VERIFY link</a>",
+      "output": "<a href=\"data:text/html;base64,VFZSSUZZ\" target=\"_blank\">VERIFY link</a>\n",
+      "kept_event_attr": false,
+      "kept_js_uri": false,
+      "kept_data_uri": true,
+      "kept_set_attr": false,
+      "kept_style_element": false,
+      "dangerous_survivor": true
+    },
+    {
+      "name": "data-uri-action",
+      "input": "<form action=\"data:text/html,VF6VERIFY\">x</form>",
+      "output": "<form action=\"data:text/html,VF6VERIFY\">x</form>\n",
+      "kept_event_attr": false,
+      "kept_js_uri": false,
+      "kept_data_uri": true,
+      "kept_set_attr": false,
+      "kept_style_element": false,
+      "dangerous_survivor": true
+    },
+    {
+      "name": "svg-set-attributeName",
+      "input": "<svg><set attributeName=\"onmouseover\" to=\"VERIFY\"></set></svg>",
+      "output": "<svg><set attributename=\"onmouseover\" to=\"VERIFY\"></set></svg>\n",
+      "kept_event_attr": false,
+      "kept_js_uri": false,
+      "kept_data_uri": false,
+      "kept_set_attr": true,
+      "kept_style_element": false,
+      "dangerous_survivor": true
+    },
+    {
+      "name": "svg-animate-href",
+      "input": "<svg><animate attributeName=\"href\" values=\"javascript:VERIFY\"></animate></svg>",
+      "output": "<svg><animate attributename=\"href\" values=\"javascript:VERIFY\"></animate></svg>\n",
+      "kept_event_attr": false,
+      "kept_js_uri": true,
+      "kept_data_uri": false,
+      "kept_set_attr": true,
+      "kept_style_element": false,
+      "dangerous_survivor": true
+    },
+    {
+      "name": "style-element-css",
+      "input": "<style>body{background:url(\"javascript:VERIFY\")}</style>",
+      "output": "<style></style>\n",
+      "kept_event_attr": false,
+      "kept_js_uri": false,
+      "kept_data_uri": false,
+      "kept_set_attr": false,
+      "kept_style_element": true,
+      "dangerous_survivor": false
+    },
+    {
+      "name": "entity-encoded-js",
+      "input": "<a href=\"&#106;avascript:VERIFY\">x</a>",
+      "output": "<a href=\"#\" target=\"_blank\">x</a>\n",
+      "kept_event_attr": false,
+      "kept_js_uri": false,
+      "kept_data_uri": false,
+      "kept_set_attr": false,
+      "kept_style_element": false,
+      "dangerous_survivor": false
+    },
+    {
+      "name": "newline-tab-in-uri",
+      "input": "<a href=\"java\nscript:VERIFY\">x</a>",
+      "output": "<a href=\"#\" target=\"_blank\">x</a>\n",
+      "kept_event_attr": false,
+      "kept_js_uri": false,
+      "kept_data_uri": false,
+      "kept_set_attr": false,
+      "kept_style_element": false,
+      "dangerous_survivor": false
+    },
+    {
+      "name": "control-inline-onerror",
+      "input": "<img src=x onerror=\"VERIFY\">",
+      "output": "<img src=\"x\" />\n",
+      "kept_event_attr": false,
+      "kept_js_uri": false,
+      "kept_data_uri": false,
+      "kept_set_attr": false,
+      "kept_style_element": false,
+      "dangerous_survivor": false
+    },
+    {
+      "name": "control-script-tag",
+      "input": "<script>VERIFY</script>",
+      "output": "\n",
+      "kept_event_attr": false,
+      "kept_js_uri": false,
+      "kept_data_uri": false,
+      "kept_set_attr": false,
+      "kept_style_element": false,
+      "dangerous_survivor": false
+    },
+    {
+      "name": "control-js-uri-href",
+      "input": "<a href=\"javascript:VERIFY\">x</a>",
+      "output": "<a href=\"#\" target=\"_blank\">x</a>\n",
+      "kept_event_attr": false,
+      "kept_js_uri": false,
+      "kept_data_uri": false,
+      "kept_set_attr": false,
+      "kept_style_element": false,
+      "dangerous_survivor": false
+    },
+    {
+      "name": "control-iframe",
+      "input": "<iframe src=\"VERIFY\"></iframe>",
+      "output": "\n",
+      "kept_event_attr": false,
+      "kept_js_uri": false,
+      "kept_data_uri": false,
+      "kept_set_attr": false,
+      "kept_style_element": false,
+      "dangerous_survivor": false
+    }
+  ],
+  "notes": "Inert VERIFY markers only; no real exploit payloads. mailparse ext missing in this deployment so full MIME ingestion could not run; the filter corpus was run through the same HtmlFilter::process($body, '') call the ingestion uses (SendgridEmailProcessor.php:102/:121).",
+  "browser_execution": "BROWSER-PHASE ADDENDUM (2026-11-08): the filter's survivor set on this runtime was measured precisely — the SMIL construct <svg><a id=x href=\"#\"><animate attributeName=\"href\" values=\"javascript:...\"></a></svg> PASSES THROUGH HtmlFilter VERBATIM (values attribute untouched, only attribute-name lowercasing; the xlink:href/to= variants are stripped), and data:text/html URIs survive in href. The stored reply carrying these constructs was captured verbatim in the live authenticated page DOM as the editor's data source (v-email-list component data email.reply serialized via @json($email)). End-to-end editor-iframe click execution was NOT demonstrated: the thread pane renders only with ingestion-pipeline-complete fixtures (attachments/relations), so the composer did not mount for the hand-crafted row — the honest scope note stands (execution remains the library/browser fact)."
+}

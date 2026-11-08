@@ -1,0 +1,33 @@
+{
+    "fingerprint": "datagrid-export-cells-formula-injection-unescaped",
+    "status": "reproduced",
+    "observations": [
+        "CSV export (GET /admin/contacts/persons?export=1&format=csv as admin) status=200 content-type=text/csv; charset=utf-8",
+        "CSV raw line containing payload: \"56\",\"+VERIFY(2)+2 VF7-1794112663\",\"vf7plus1794112663@vf7.example.local (work)\",\"\",\"\",\"\"",
+        "CSV raw line containing payload: \"55\",\"=VERIFY(1)+1 VF7-1794112663\",\"vf7eq1794112663@vf7.example.local (work)\",\"\",\"\",\"\"",
+        "CSV: cell text \"=VERIFY(1)+1 ...\" preserved with leading \"=\" (no quote-prefix/escape): true; \"+VERIFY(2)+2 ...\" preserved: true",
+        "XLSX: {\"marker_in_raw_bytes\":false,\"raw_eq_present\":false}",
+        "DECISIVE: exported cells carry the raw \"=\" / \"+\"-prefixed stored values with no formula neutralization (raw bytes in CSV; xlsx checked for formula elements)",
+        "XLSX (fresh-process export, attempt 1): the stored name \"=VERIFY(1)+1 <tag>\" was typed as a FORMULA cell by the writer — sheet1.xml contains <c r=\"B3\" t=\"str\"><f>VERIFY(1)+1 VF7F-1794112781</f><v>0</v></c> (leading \"=\" consumed as formula marker, <f> element written, PhpSpreadsheet DefaultValueBinder). When opened in a spreadsheet client the <f> element is evaluated as a live formula (CWE-1236). The \"+\"-payload stayed a sharedString (not formula-typed by the binder).",
+        "Note: the XLSX export may also fail outright with HTTP 500 (TypeError array_intersect_key at PhpSpreadsheet Calculation.php:4920) when the writer's calculateColumnWidths -> getCalculatedValue path attempts to EVALUATE the \"=VERIFY(1)+1\" cell as a formula — trace shows Cell:380 calculateCellValue -> Calculation _calculateFormulaValue -> processTokenStack. Both outcomes prove the \"=\" cell is typed and treated as a formula, not a text value."
+    ],
+    "errors": [],
+    "proposed_verdict": "confirmed",
+    "proposed_severity": "medium",
+    "observed_result_for_record": "Reproduced on the live export path: persons seeded with names \"=VERIFY(1)+1 <tag>\" and \"+VERIFY(2)+2 <tag>\" (inert formula markers) were fetched by an admin via GET /admin/contacts/persons?export=1&format=csv (the same processExportRequest/setExportFile branch the record cites — which bypasses the JSON path's strip_tags sanitizeRow), and the downloaded CSV bytes contain the raw cell values with the leading \"=\" and \"+\" intact — e.g. line: \"…\",\"=VERIFY(1)+1 <tag>\",… — with no quote-prefix, escape or neutralization, exactly as DataGridExport::map returns $record->{$index} verbatim into the maatwebsite/excel + PhpSpreadsheet writer. The xlsx variant was additionally inspected: [see observations]. Whether the leading \"=\" is typed as a live formula is decided by the deployed writer defaults (PhpSpreadsheet DefaultValueBinder does treat \"=\"-prefixed strings as formulas for xlsx; the CSV carries the raw bytes regardless), and whether a spreadsheet client evaluates it is a client fact outside this repository. Markers inert; rows deleted after observation. XLSX evidence: the export typed the \"=\"-prefixed stored value as a real formula element — sheet1.xml cell: <c r=\"B3\" t=\"str\"><f>VERIFY(1)+1 VF7F-1794112781</f><v>0</v></c> — and the writer even attempts to EVALUATE it server-side (calculateColumnWidths -> getCalculatedValue -> Calculation engine; a dummy formula like this can crash the export with a TypeError 500). CSV carries the raw \"=\" and \"+\" bytes unescaped.",
+    "csv_raw_lines": [
+        "\"56\",\"+VERIFY(2)+2 VF7-1794112663\",\"vf7plus1794112663@vf7.example.local (work)\",\"\",\"\",\"\"",
+        "\"55\",\"=VERIFY(1)+1 VF7-1794112663\",\"vf7eq1794112663@vf7.example.local (work)\",\"\",\"\",\"\""
+    ],
+    "xlsx_result": {
+        "marker_in_raw_bytes": false,
+        "raw_eq_present": false
+    },
+    "notes": "No real DDE/WEBSERVICE payloads used — \"=VERIFY(1)+1\" and \"+VERIFY(2)+2\" are inert arithmetic markers.",
+    "xlsx_standalone_evidence": {
+        "attempts": 1,
+        "status_200": true,
+        "shared_string_plus_payload": "<si><t>+VERIFY(2)+2 VF7F-1794112781</t></si>",
+        "formula_cell": "<c r=\"B3\" t=\"str\"><f>VERIFY(1)+1 VF7F-1794112781</f><v>0</v></c>"
+    }
+}

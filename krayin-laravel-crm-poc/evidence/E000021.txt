@@ -1,0 +1,17 @@
+108:          * after all of our `Vue` components which is present in blade file have
+109:          * been registered in the app. No matter what `app.mount()` should be
+110:          * called in the last.
+111:          */
+112:         window.addEventListener("load", function(event) {
+113:             app.mount("#app");
+114:         });
+115:     </script>
+116:
+117:     {!! view_render_event('admin.layout.vue-app-mount.after') !!}
+118:
+119:     <script type="text/javascript">
+120:         {!! core()->getConfigData('general.content.custom_scripts.custom_javascript') !!}
+121:     </script>
+122: </body>
+123:
+124: </html>

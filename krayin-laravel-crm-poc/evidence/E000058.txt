@@ -1,0 +1,31 @@
+330:         foreach ($batch->data as $rowData) {
+331:             $rowData = $this->parsedRowData($rowData);
+332:
+333:             foreach ($rowData['emails'] as $email) {
+334:                 if (! $this->isEmailExist($email['value'])) {
+335:                     continue;
+336:                 }
+337:
+338:                 $idsToDelete[] = $this->personStorage->get($email['value']);
+339:             }
+340:         }
+341:
+342:         $idsToDelete = array_unique($idsToDelete);
+343:
+344:         $this->deletedItemsCount = count($idsToDelete);
+345:
+346:         $this->personRepository->deleteWhere([['id', 'IN', $idsToDelete]]);
+347:
+348:         return true;
+349:     }
+350:
+351:     /**
+352:      * Save person from current batch.
+353:      */
+354:     protected function savePersonData(ImportBatchContract $batch): bool
+355:     {
+356:         /**
+357:          * Load person storage with batch email.
+358:          */
+359:         $emails = collect(Arr::pluck($batch->data, 'emails'))
+360:             ->map(function ($emails) {

@@ -1,0 +1,21 @@
+140:                     $q->where('name', 'like', '%'.$searchTerm.'%')
+141:                         ->orWhere('emails', 'like', '%'.$searchTerm.'%')
+142:                         ->orWhere('contact_numbers', 'like', '%'.$searchTerm.'%');
+143:                 });
+144:             });
+145:         }
+146:
+147:         if ($userIds = bouncer()->getAuthorizedUserIds()) {
+148:             $persons = $personRepository->findWhereIn('user_id', $userIds);
+149:         } else {
+150:             $persons = $personRepository->all();
+151:         }
+152:
+153:         return PersonResource::collection($persons);
+154:     }
+155:
+156:     /**
+157:      * Remove the specified resource from storage.
+158:      */
+159:     public function destroy(int $id): JsonResponse
+160:     {

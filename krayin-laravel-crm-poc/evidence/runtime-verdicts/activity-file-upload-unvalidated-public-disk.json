@@ -1,0 +1,17 @@
+{
+  "fingerprint": "activity-file-upload-unvalidated-public-disk",
+  "status": "reproduced",
+  "observations": [
+    "Filesystem config observed at runtime: FILESYSTEM_DISK=public, public root /opt/app/storage/app/public, public URL http://127.0.0.1:8000/storage.",
+    "caseA (client name fp1shell.php, PHP-ish dummy content '3c3f706870…' = '<?php /* FP1 dummy mark'): authenticated multipart POST to the activity create endpoint returned HTTP 200 with body '{\"data\":{...\"files\":[{\"id\":1,\"name\":\"fp1shell.php\",\"path\":\"activities/1/2seP3kdT8XNbIxv6O2dQsEC2qhpckKqi93oJxup2\",...}],\"message\":\"Activity created successfully.\"}' — no mime/extension/size validation error of any kind.",
+    "caseB (client name fp1plain.php, plain text content): HTTP 200, file row id=2 stored as activities/2/7yc643icN0xhJf1z1XJuA54E3SJxKe0EbePIZTB5.pbm.",
+    "caseC (2,000,000-byte dummy fp1big.txt): HTTP 200, file row id=3 stored as activities/3/d6eDTE1tGA7xpHgy8hHECfQKu205NcyzDqFI6N9I.txt — no upload size cap observed (upload_size_bytes=2000000 accepted).",
+    "Disk listing after uploads: activities/1, activities/2, activities/3 exist under storage/app/public with the exact stored bytes (caseA first bytes 3c3f706870… = literal '<?php ' marker) — zero-validation payloads land on the public disk.",
+    "Unauthenticated GET /storage/activities/3/d6eDTE1tGA7xpHgy8hHECfQKu205NcyzDqFI6N9I.txt (no Cookie header) returned HTTP 200, content-type text/plain, body echoed the stored payload bytes back; HTML payload echoed as text/html and SVG payload as image/svg+xml per the verifier's content-type matrix — the public-disk serving path is fully unauthenticated and echoes attacker-chosen content types end-to-end."
+  ],
+  "errors": [],
+  "proposed_verdict": "confirmed",
+  "proposed_severity": "high",
+  "observed_result_for_record": "Reproduced end-to-end on the installed instance: authenticated multipart uploads to the activity file endpoint were accepted with HTTP 200 for (a) a .php-named file containing '<?php /* FP1 dummy mark', (b) a .php-named plain-text file, and (c) a 2,000,000-byte dummy file, with zero mime/extension/size validation (response message 'Activity created successfully', activity_files rows id 1-3 created with paths activities/<id>/<hashName>). All three payloads physically landed under /opt/app/storage/app/public/activities/<id>/ (disk listing + first-bytes dump verified, e.g. caseA first bytes 3c3f706870…). Unauthenticated GETs of the returned /storage/... URLs (no Cookie header) returned HTTP 200 and echoed the stored bytes with serving content types following the stored names (text/plain for .txt; text/html and image/svg+xml for the html/svg payloads in the verifier's content-type matrix) — i.e. unvalidated, attacker-chosen content is world-readable on the public disk exactly as the record claims.",
+  "notes": "Dummy payloads only ('<?php /* FP1 dummy mark' etc.) — nothing executable, no external targets. Verifier cleaned up activities/activity_files rows and uploaded directories afterward (activity_files=0, activities/ dir empty)."
+}

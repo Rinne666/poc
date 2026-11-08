@@ -1,0 +1,111 @@
+{
+  "fingerprint": "data-transfer-import-delete-ignores-view-scope",
+  "status": "reproduced",
+  "observations": [
+    "cleanup: removed leftover fp1 rows/imports if any",
+    "role_id: 49",
+    "u2_id: 54",
+    "u2_authorized_ids_expected: [54]",
+    "p_admin_id: 62",
+    "p_admin_user_id: 1",
+    "p_u2_id: 63",
+    "p_u2_user_id: 54",
+    "u2_login_ok: True",
+    "u2_interactive_edit_get_admin_owned_status: 401",
+    "u2_interactive_edit_get_own_status: 200",
+    "u2_persons_datagrid_status: 200",
+    "u2_persons_datagrid_sees_admin_owned: NO",
+    "u2_persons_datagrid_row_count: None",
+    "csv_bytes: name,emails,contact_numbers,organization_id,job_title,user_id\n\"FP1 Admin Owned\",\"[{\"\"label\"\":\"\"work\"\",\"\"value\"\":\"\"fp1.admin-owned@example.com\"\"}]\",\"[{\"\"label\"\":\"\"work\"\",\"\"value\"\":\"\"5550000001\"\"}]\",,\"Sales Executive\",1\n\"FP1 U2 Owned\",\"[{\"\"label\"\":\"\"work\"\",\"\"value\"\":\"\"fp1.u2-owned@example.com\"\"}]\",\"[{\"\"label\"\":\"\"work\"\",\"\"value\"\":\"\"5550000002\"\"}]\",,\"Sales Executive\",54\n",
+    "u2_import_create_page_status: 200",
+    "csrf_token_found: yes",
+    "import_store_status: 302",
+    "import_store_redirect: http://127.0.0.1:8000/admin/settings/data-transfer/imports/import/2",
+    "import_id: 2",
+    "stored_file_path: imports/qVV4De70apJp570b02xN10NdfgcNBKHzOEAFPGgj.csv",
+    "stored_file_bytes: name,emails,contact_numbers,organization_id,job_title,user_id\n\"FP1 Admin Owned\",\"[{\"\"label\"\":\"\"work\"\",\"\"value\"\":\"\"fp1.admin-owned@example.com\"\"}]\",\"[{\"\"label\"\":\"\"work\"\",\"\"value\"\":\"\"5550000001\"\"}]\",,\"Sales Executive\",1\n\"FP1 U2 Owned\",\"[{\"\"label\"\":\"\"work\"\",\"\"value\"\":\"\"fp1.u2-owned@example.com\"\"}]\",\"[{\"\"label\"\":\"\"work\"\",\"\"value\"\":\"\"5550000002\"\"}]\",,\"Sales Executive\",54\n",
+    "stored_file_field_separator: ,",
+    "p_admin_before: id=62 user_id=1 email=[{\"label\": \"work\", \"value\": \"fp1.admin-owned@example.com\"}]",
+    "p_u2_before: id=63 user_id=54",
+    "validate_status: 200",
+    "validate_payload: {\"is_valid\": true, \"state\": \"validated\", \"processed_rows\": 2, \"invalid_rows\": 0, \"errors_count\": 0, \"errors\": []}",
+    "start_status: 200",
+    "start_body: {\"stats\": {\"batches\": {\"total\": 1, \"completed\": 1, \"remaining\": 0}, \"progress\": 100, \"summary\": {\"created\": 0, \"updated\": 0, \"deleted\": 2}}, \"import\": {\"id\": 2, \"state\": \"processing\", \"process_in_queue\": 0, \"type\": \"persons\", \"action\": \"delete\", \"validation_strategy\": \"skip-errors\", \"allowed_errors\": 0, \"processed_rows_count\": 2, \"invalid_rows_count\": 0, \"errors_count\": 0, \"errors\": [], \"field_separator\": \",\", \"file_path\": \"imports/qVV4De70apJp570b02xN10NdfgcNBKHzOEAFPGgj.csv\", \"error_file_path\": null, \"summary\": [], \"started_at\": \"2026-11-08T05:09:29.000000Z\", \"completed_at\": null, \"created_at\": \"2026-11-08T05:09:29.000000Z\", \"updated_at\": \"2026-11-08T05:09:29.000000Z\"}}",
+    "p_admin_after: DELETED",
+    "p_u2_after: DELETED",
+    "p_admin_attribute_values_after: 4",
+    "import_final_state: processing",
+    "import_final_summary: []",
+    "import_final_errors: []",
+    "cross_scope_delete_via_import: CONFIRMED (admin-owned person hard-deleted by U2)",
+    "in_scope_delete_via_import: also deleted (expected)",
+    "interactive_edit_blocked_401: YES",
+    "cleanup_done: fp1 rows removed"
+  ],
+  "errors": [],
+  "proposed_verdict": "confirmed",
+  "proposed_severity": "high",
+  "observed_result_for_record": "Redo of the invalid prior reproduction (CSV column mismatch -> wrong_columns_number, 0 rows processed). This time the CSV was generated with fputcsv against the shipped persons importer columns (name,emails,contact_numbers,organization_id,job_title,user_id) and the stored upload was read back byte-identical. Restricted user U2 (role with exactly the two import ACL keys settings.automation.data_transfer.imports.create+.import, view_permission=individual, authorized ids=[self]) logged in and drove POST imports/create (type=persons, action=delete) -> GET validate/{id} (is_valid=true, processed_rows=2, errors=[]) -> GET start/{id} (summary deleted=2). DECISIVE: the admin-owned person (id=62, user_id=1, outside U2's authorized ids) was HARD-DELETED from the persons table (attribute_values left orphaned: 4 rows), together with U2's own person, while the same mutation interactively is blocked (GET edit/{admin-owned} -> 401 preventUnauthorizedAccess; U2's persons datagrid does not list the admin-owned person). Cross-scope bulk hard-delete via the import pipeline is confirmed.",
+  "notes": {
+    "validate": {
+      "is_valid": true,
+      "import": {
+        "id": 2,
+        "state": "validated",
+        "process_in_queue": 0,
+        "type": "persons",
+        "action": "delete",
+        "validation_strategy": "skip-errors",
+        "allowed_errors": 0,
+        "processed_rows_count": 2,
+        "invalid_rows_count": 0,
+        "errors_count": 0,
+        "errors": [],
+        "field_separator": ",",
+        "file_path": "imports/qVV4De70apJp570b02xN10NdfgcNBKHzOEAFPGgj.csv",
+        "error_file_path": null,
+        "summary": null,
+        "started_at": null,
+        "completed_at": null,
+        "created_at": "2026-11-08T05:09:29.000000Z",
+        "updated_at": "2026-11-08T05:09:29.000000Z"
+      }
+    },
+    "start": {
+      "stats": {
+        "batches": {
+          "total": 1,
+          "completed": 1,
+          "remaining": 0
+        },
+        "progress": 100,
+        "summary": {
+          "created": 0,
+          "updated": 0,
+          "deleted": 2
+        }
+      },
+      "import": {
+        "id": 2,
+        "state": "processing",
+        "process_in_queue": 0,
+        "type": "persons",
+        "action": "delete",
+        "validation_strategy": "skip-errors",
+        "allowed_errors": 0,
+        "processed_rows_count": 2,
+        "invalid_rows_count": 0,
+        "errors_count": 0,
+        "errors": [],
+        "field_separator": ",",
+        "file_path": "imports/qVV4De70apJp570b02xN10NdfgcNBKHzOEAFPGgj.csv",
+        "error_file_path": null,
+        "summary": [],
+        "started_at": "2026-11-08T05:09:29.000000Z",
+        "completed_at": null,
+        "created_at": "2026-11-08T05:09:29.000000Z",
+        "updated_at": "2026-11-08T05:09:29.000000Z"
+      }
+    }
+  }
+}

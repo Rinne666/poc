@@ -1,0 +1,166 @@
+{
+  "schemaVersion": 1,
+  "vendor": "Webkul",
+  "product": "krayin/laravel-crm",
+  "upstreamUrl": "https://github.com/krayin/laravel-crm",
+  "testedVersion": "2.2 line (master)",
+  "testedCommit": "ed6deebfcb8c616eaf352c893a10a6d8e666fc6e",
+  "disclosure": {
+    "status": "NOT_REPORTED",
+    "vendorContact": "NOT_YET_CONTACTED — no message sent to Webkul (support@webkul.com per SECURITY.md) as of 2026-11-08. Eight findings are staged for VulDB submission; the seven in this directory are the ones with public PoC material. Publication decision rests with the repository owner.",
+    "publicationApproved": true,
+    "publicationApproval": "Repository owner decision 2026-11-08: publish PoC material for V1-V7 ahead of the VulDB submissions, matching the flow used for pinpoint-poc."
+  },
+  "findings": [
+    {
+      "id": "V1",
+      "slug": "mail-forward-editor-htmlfilter-only-body",
+      "title": "Inbound mail HTML reaches the forward/reply editor initial content without the sanitizer every sibling render sink applies",
+      "cwe": "CWE-79",
+      "cvss31": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:H/I:H/A:N",
+      "cvssScore": 9.3,
+      "proofLevel": "RUNTIME_VERIFIED (filter survivor set + authenticated-page DOM delivery; editor-iframe execution not demonstrated)",
+      "readyForReview": true,
+      "preconditions": "Inbound mail with attacker-chosen HTML body (any deployment with mail ingestion configured); an agent opens the forward/reply editor for that mail.",
+      "positiveControl": "Sibling automatic sinks on the same data are guarded: v-safe-html at view.blade.php:246, strip_tags at DataGrid.php:472; the filter's controls behave (on* stripped, script/iframe removed, javascript: URIs rewritten).",
+      "negativeControl": "The sole filter (HtmlFilter::process, the same call ingestion makes) was probed with 9 payload classes on the deployed runtime; the survivor set was measured precisely (SMIL animate/set, data:text/html URIs pass; style emptied).",
+      "observedImpact": "External mail sender's script-class markup reaches the authenticated agent session's editor surface (stored reply captured verbatim in the live page DOM as the editor data source).",
+      "notDemonstrated": "End-to-end click execution inside the TinyMCE 6.6.2 editor iframe (composer did not mount for the hand-crafted row in the lab).",
+      "evidence": [
+        "evidence/E000035.txt",
+        "evidence/E000036.txt",
+        "evidence/E000125.txt",
+        "evidence/runtime-verdicts/mail-forward-editor-htmlfilter-only-body.json"
+      ]
+    },
+    {
+      "id": "V2",
+      "slug": "bouncer-ancestor-walk-unmapped-write-routes",
+      "title": "acl.php leaves destructive attribute routes unmapped and the Bouncer dotted-prefix ancestor fallback authorizes them, while exact-mapped sibling deletes stay permission-gated",
+      "cwe": "CWE-862",
+      "cvss31": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:C/C:H/I:H/A:H",
+      "cvssScore": 9.9,
+      "proofLevel": "RUNTIME_VERIFIED (end-to-end HTTP for attribute mass-destroy; reflection-level for the additional cross-domain grants)",
+      "readyForReview": true,
+      "preconditions": "Role granting only a view/ancestor ACL key such as settings.automation.attributes (supported configuration, no write keys); acl.php has no mapping for the write route (shipped default).",
+      "positiveControl": "Exact-mapped DELETE /admin/settings/attributes/<id> returns 401 for the same session; exact view key returns 200.",
+      "negativeControl": "leads.view holder DENIED admin.leads.quotes.delete — the walk stops at the mapped admin.leads.quotes. prefix, showing the walk is bounded by existing mappings, which is exactly why unmapped routes fall through.",
+      "observedImpact": "View-only role hard-deleted 2 of 3 admin-created attribute definitions via POST mass-destroy (HTTP 200) with FK-CASCADE destruction of all stored attribute_values; reflection confirms leads.view -> admin.leads.attributes.update/emails.store and products.view -> admin.products.inventories.store/admin.products.search.",
+      "notDemonstrated": "HTTP-level execution of the reflection-confirmed additional grants; introducing commit not traced.",
+      "evidence": [
+        "evidence/E000007.txt",
+        "evidence/E000017.txt",
+        "evidence/E000104.txt",
+        "evidence/runtime-verdicts/bouncer-ancestor-walk-unmapped-write-routes.json"
+      ]
+    },
+    {
+      "id": "V3",
+      "slug": "data-transfer-import-delete-ignores-view-scope",
+      "title": "The data-transfer import delete path resolves row targets without the authorized-user scope the interactive delete route enforces",
+      "cwe": "CWE-863",
+      "cvss31": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:H",
+      "cvssScore": 8.1,
+      "proofLevel": "RUNTIME_VERIFIED",
+      "readyForReview": true,
+      "preconditions": "Initiator holds the two import ACL keys with limited view_permission (individual, authorized ids = self); rows target records outside the initiator's authorized ids (ids enumerable).",
+      "positiveControl": "Same user's interactive GET edit/{admin-owned id} returns 401 (preventUnauthorizedAccess); the admin-owned person does not appear in the user's datagrid.",
+      "negativeControl": "First reproduction attempt with a wrong column set failed closed (wrong_columns_number, 0 rows processed) — the pipeline's own validation behaves; the corrected CSV then deletes cross-scope.",
+      "observedImpact": "Restricted user U2 started a persons action=delete import: summary deleted=2, admin-owned person id 62 hard-deleted (4 attribute_values rows orphaned), entirely bypassing the scope the UI enforces.",
+      "notDemonstrated": "Only the persons importer driven end-to-end; leads/products/quotes importers share the unscoped pattern but were not executed.",
+      "evidence": [
+        "evidence/E000058.txt",
+        "evidence/E000084.txt",
+        "evidence/E000107.txt",
+        "evidence/runtime-verdicts/data-transfer-import-delete-ignores-view-scope.json"
+      ]
+    },
+    {
+      "id": "V4",
+      "slug": "lead-person-attach-missing-scope-check",
+      "title": "The lead person-attach path persists person ids without re-asserting the actor's authorized-user scope, while the direct person read path enforces it",
+      "cwe": "CWE-639",
+      "cvss31": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:L/A:N",
+      "cvssScore": 7.1,
+      "proofLevel": "RUNTIME_VERIFIED",
+      "readyForReview": true,
+      "preconditions": "Actor holds lead-edit rights under individual/group view_permission; a person outside the actor's authorized-user-ids exists (ids enumerable).",
+      "positiveControl": "Direct GET /admin/contacts/persons/view/<victim id> returns 401 for the same user; the same person[id] payload at another user's lead returns 401.",
+      "negativeControl": "The lead update path itself is scope-gated for the lead id (cross-user lead target rejected) — only the person id inside the payload goes unchecked.",
+      "observedImpact": "PUT attributes/edit/<own lead> with person[id]=<victim id> persisted (HTTP 200); the lead view HTML and kanban JSON render the victim person's email and contact number verbatim.",
+      "notDemonstrated": "Write access to the victim lead; victim attribute-file contents not accessed.",
+      "evidence": [
+        "evidence/E000027.txt",
+        "evidence/E000033.txt",
+        "evidence/E000083.txt",
+        "evidence/E000123.txt",
+        "evidence/runtime-verdicts/lead-person-attach-missing-scope-check.json"
+      ]
+    },
+    {
+      "id": "V5",
+      "slug": "datagrid-export-cells-formula-injection-unescaped",
+      "title": "The export writer returns stored cell values verbatim while the JSON datagrid path strips them (CSV/XLSX formula injection)",
+      "cwe": "CWE-1236",
+      "cvss31": "CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:C/C:H/I:H/A:N",
+      "cvssScore": 8.7,
+      "proofLevel": "RUNTIME_VERIFIED (CSV raw bytes + XLSX formula element + server-side evaluation attempt)",
+      "readyForReview": true,
+      "preconditions": "Any record-creating actor (incl. anonymous public web-form submission) seeds a field value with a leading =/+/-/@; a staff member exports and opens the file in spreadsheet software.",
+      "positiveControl": "The JSON datagrid path for the same rows applies strip_tags (sanitizeRow) — the export branch is the bypass.",
+      "negativeControl": "Non-formula-leading seeded values export unchanged and inert; only =/+/-/@ leading values carry the injection class.",
+      "observedImpact": "CSV bytes carry \"=VERIFY(1)+1 <tag>\" raw with no quote-prefix; XLSX sheet1.xml contains <c r=\"B3\" t=\"str\"><f>VERIFY(1)+1 …</f><v>0</v></c> and the writer attempts server-side evaluation during calculateColumnWidths (dummy formula can crash the export with TypeError 500).",
+      "notDemonstrated": "Client-side formula evaluation on the analyst's machine (spreadsheet application settings are a client fact outside this repository).",
+      "evidence": [
+        "evidence/E000023.txt",
+        "evidence/E000038.txt",
+        "evidence/E000039.txt",
+        "evidence/E000111.txt",
+        "evidence/runtime-verdicts/datagrid-export-cells-formula-injection-unescaped.json"
+      ]
+    },
+    {
+      "id": "V6",
+      "slug": "activity-file-upload-unvalidated-public-disk",
+      "title": "The activity file upload path stores payloads of any type and size on the public disk, while mail attachments land on a private disk behind an authenticated download route",
+      "cwe": "CWE-434",
+      "cvss31": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:H/A:N",
+      "cvssScore": 7.1,
+      "proofLevel": "RUNTIME_VERIFIED (end-to-end, incl. unauthenticated /storage fetches)",
+      "readyForReview": true,
+      "preconditions": "Any authenticated staff user who can create activities; default public filesystem disk with /storage/* served unauthenticated (shipped defaults).",
+      "positiveControl": "Mail attachments land on a private disk behind an authenticated download route — the guarded sibling pattern exists in the same product.",
+      "negativeControl": "PHP execution NOT achievable: content-sniffing hashName() stores PHP-ish content without a .php extension (the polyglot/.php-persistence hypothesis was runtime-refuted during adjudication).",
+      "observedImpact": "Authenticated uploads of (a) .php-named PHP-ish dummy, (b) .php-named plain text, (c) 2 MB dummy all returned HTTP 200 with zero validation; payloads physically landed under storage/app/public/activities/<id>/; unauthenticated GETs of the /storage/... URLs returned 200 echoing the bytes with content types following the stored names (text/plain, text/html, image/svg+xml).",
+      "notDemonstrated": "Server-side code execution; demonstrated result is world-readable hosting of attacker-chosen content (stored-XSS/defacement delivery from the origin).",
+      "evidence": [
+        "evidence/E000013.txt",
+        "evidence/E000020.txt",
+        "evidence/E000088.txt",
+        "evidence/E000102.txt",
+        "evidence/runtime-verdicts/activity-file-upload-unvalidated-public-disk.json"
+      ]
+    },
+    {
+      "id": "V7",
+      "slug": "configuration-store-undefined-key-raw-layout-echo",
+      "title": "The layout renders the stored custom_scripts value outside the escaping every neighbouring template value goes through",
+      "cwe": "CWE-79",
+      "cvss31": "CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:C/C:H/I:H/A:N",
+      "cvssScore": 8.7,
+      "proofLevel": "RUNTIME_VERIFIED (browser execution confirmed in real Chromium)",
+      "readyForReview": true,
+      "preconditions": "Actor holding settings/configuration write rights saves the configuration key once (admin-originated value; the boundary crossed is admin -> every subsequent unauthenticated visitor).",
+      "positiveControl": "Neighbouring template values in the same layouts go through Blade escaping; registered configuration keys pass sanitizeConfigValue's HTMLPurifier.",
+      "negativeControl": "Undefined keys persist only when getConfigField() returns null (no validation rule rejects them) — the guard exists for known keys, which is exactly why undefined keys fall through raw.",
+      "observedImpact": "POST configuration store persisted three undefined keys verbatim into core_config; the unauthenticated login page echoed custom_javascript raw inside <script> and custom_css raw inside <style>; real Chromium executed the benign payload document.title='VF3EXECUTED' on /login (tab title changed from 'Sign In'; alert()-variant fired interactively on an earlier load); admin dashboard and public web-form layouts echo the same values raw.",
+      "notDemonstrated": "Session theft or a malicious payload (only the benign executing-class marker was run).",
+      "evidence": [
+        "evidence/E000009.txt",
+        "evidence/E000021.txt",
+        "evidence/E000105.txt",
+        "evidence/runtime-verdicts/configuration-store-undefined-key-raw-layout-echo.json"
+      ]
+    }
+  ]
+}

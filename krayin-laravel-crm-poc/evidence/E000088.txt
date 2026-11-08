@@ -1,0 +1,30 @@
+1: <?php
+2:
+3: use Illuminate\Support\Facades\Route;
+4: use Webkul\Admin\Http\Controllers\Mail\EmailController;
+5: use Webkul\Admin\Http\Controllers\Mail\TagController;
+6:
+7: Route::prefix('mail')->middleware('sanitize_url')->group(function () {
+8:     Route::controller(EmailController::class)->group(function () {
+9:         Route::post('create', 'store')->name('admin.mail.store');
+10:
+11:         Route::put('edit/{id}', 'update')->name('admin.mail.update');
+12:
+13:         Route::get('attachment-download/{id?}', 'download')->name('admin.mail.attachment_download');
+14:
+15:         Route::get('{route?}', 'index')->name('admin.mail.index');
+16:
+17:         Route::get('{route}/{id}', 'view')->name('admin.mail.view');
+18:
+19:         Route::delete('{id}', 'destroy')->name('admin.mail.delete');
+20:
+21:         Route::post('mass-update', 'massUpdate')->name('admin.mail.mass_update');
+22:
+23:         Route::post('mass-destroy', 'massDestroy')->name('admin.mail.mass_delete');
+24:
+25:         Route::post('inbound-parse', 'inboundParse')
+26:             ->name('admin.mail.inbound_parse')
+27:             ->withoutMiddleware('user')
+28:             ->middleware(['throttle:60,1', 'inbound_email_token']);
+29:     });
+30:

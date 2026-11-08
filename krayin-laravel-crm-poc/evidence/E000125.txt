@@ -1,0 +1,60 @@
+1: {
+2:     "fingerprint": "mail-forward-editor-htmlfilter-only-body",
+3:     "status": "reproduced",
+4:     "observations": [
+5:         "STATIC [SendgridEmailProcessor stores reply behind HtmlFilter only] hits=2 (first: L102 'reply' => $this->htmlFilter->process($reply, ''),)",
+6:         "STATIC [view.blade.php serializes raw model (@json)] hits=4 (first: L1222 email: @json($email),)",
+7:         "STATIC [view.blade.php forward computed returns action.email.reply] hits=3 (first: L142 <span>@lang('admin::app.mail.view.to') @{{ email.reply_to.join(', ') }}</span>)",
+8:         "STATIC [view.blade.php automatic sink uses v-safe-html (control present elsewhere)] hits=1 (first: L246 v-safe-html=\"email.reply\")",
+9:         "STATIC [control.blade.php textarea case mounts tinymce on #reply] hits=3 (first: L103 if ($attributes->get('tinymce', false) || $attributes->get(':tinymce', false)) {)",
+10:         "STATIC [tinymce component init] hits=1 (first: L86 tinymce.init({)",
+11:         "STATIC [tinymce component has no valid_elements/sanitize hook (absence)] hits=0 (first: L- )",
+12:         "tinymce.init option keys: template, props, methods, document_base_url, plugins, toolbar, link_default_protocol, link_default_target, directionality, text, type — NO valid_elements/sanitize hook in the component",
+13:         "FILTER [data-uri-href] dangerous_survivor=true output=\"<a href=\\\"data:text/html;base64,VFZSSUZZ\\\" target=\\\"_blank\\\">VERIFY link</a>\\n\"",
+14:         "FILTER [data-uri-action] dangerous_survivor=true output=\"<form action=\\\"data:text/html,VF6VERIFY\\\">x</form>\\n\"",
+15:         "FILTER [svg-set-attributeName] dangerous_survivor=true output=\"<svg><set attributename=\\\"onmouseover\\\" to=\\\"VERIFY\\\"></set></svg>\\n\"",
+16:         "FILTER [svg-animate-href] dangerous_survivor=true output=\"<svg><animate attributename=\\\"href\\\" values=\\\"javascript:VERIFY\\\"></animate></svg>\\n\"",
+17:         "FILTER [style-element-css] dangerous_survivor=false output=\"<style></style>\\n\"",
+18:         "FILTER [entity-encoded-js] dangerous_survivor=false output=\"<a href=\\\"#\\\" target=\\\"_blank\\\">x</a>\\n\"",
+19:         "FILTER [newline-tab-in-uri] dangerous_survivor=false output=\"<a href=\\\"#\\\" target=\\\"_blank\\\">x</a>\\n\"",
+20:         "FILTER [control-inline-onerror] dangerous_survivor=false output=\"<img src=\\\"x\\\" />\\n\"",
+21:         "FILTER [control-script-tag] dangerous_survivor=false output=\"\\n\"",
+22:         "FILTER [control-js-uri-href] dangerous_survivor=false output=\"<a href=\\\"#\\\" target=\\\"_blank\\\">x</a>\\n\"",
+23:         "FILTER [control-iframe] dangerous_survivor=false output=\"\\n\"",
+24:         "DECISIVE: the sole control on the forward-editor content (HtmlFilter blacklist) demonstrably passes dangerous constructs on this runtime (data-uri-href, data-uri-action, svg-set-attributeName, svg-animate-href), and the forward path feeds the stored body straight into TinyMCE initial content with no DOMPurify/strip_tags layer and no editor schema config (static). Whether a survivor executes inside the TinyMCE 6.6.2 editor iframe remains a library/browser fact (not observable here)."
+25:     ],
+26:     "errors": [],
+27:     "proposed_verdict": "confirmed",
+28:     "proposed_severity": "medium",
+29:     "observed_result_for_record": "Static (container source at the deployed commit): the forward flow is exactly as claimed — EmailController@view returns the raw Email model; view.blade.php serializes it with @json($email) (:1222) and the forward computed returns action.email.reply (:1373); control.blade.php mounts x-admin::tinymce on textarea#reply; tinymce/index.blade.php runs tinymce.init with only plugins/toolbar/upload options and NO valid_elements/sanitize hook; the same field at automatic sinks IS guarded (v-safe-html at view.blade.php:246, strip_tags at DataGrid.php:472). Runtime (the sole control actually applied, HtmlFilter::process — the same call ingestion makes): the blacklist demonstrably passes dangerous constructs on this runtime — data:text/html URIs survive in both href and action, and SVG <set>/<animate attributeName=...> constructs survive intact (attribute names lowercased, which HTML parsing treats identically). Controls were correctly removed (on* attributes stripped, <script>/<iframe> removed, literal and entity-encoded javascript: URIs and newline-split javascript: rewritten to #), and the <style> element was kept but its content emptied. So the forward editor receives content that a same-origin editor iframe renders with these constructs intact. TinyMCE 6.6.2 editor-iframe execution was not observable in this environment (no browser harness; TinyMCE loaded from cdnjs) — the missing second sanitizer layer and the weak sole filter are runtime-confirmed; actual in-editor execution remains the record's stated library/browser fact.",
+30:     "static_results": [
+31:         {
+32:             "check": "SendgridEmailProcessor stores reply behind HtmlFilter only",
+33:             "file": "/opt/app/packages/Webkul/Email/src/InboundEmailProcessor/SendgridEmailProcessor.php",
+34:             "pattern": "htmlFilter->process",
+35:             "hits": [
+36:                 {
+37:                     "line": 102,
+38:                     "text": "'reply' => $this->htmlFilter->process($reply, ''),"
+39:                 },
+40:                 {
+41:                     "line": 121,
+42:                     "text": "'reply' => $this->htmlFilter->process($reply, ''),"
+43:                 }
+44:             ]
+45:         },
+46:         {
+47:             "check": "view.blade.php serializes raw model (@json)",
+48:             "file": "/opt/app/packages/Webkul/Admin/src/Resources/views/mail/view.blade.php",
+49:             "pattern": "@json(",
+50:             "hits": [
+51:                 {
+52:                     "line": 1222,
+53:                     "text": "email: @json($email),"
+54:                 },
+55:                 {
+56:                     "line": 1897,
+57:                     "text": "email: @json($email->getAttributes()),"
+58:                 },
+59:                 {
+60:                     "line": 1917,

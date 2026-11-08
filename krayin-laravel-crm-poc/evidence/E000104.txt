@@ -1,0 +1,27 @@
+1: {
+2:     "fingerprint": "bouncer-ancestor-walk-unmapped-write-routes",
+3:     "status": "reproduced",
+4:     "observations": [
+5:         "fixtures: userViewOnly id=23 role permissions=['dashboard','settings','settings.automation','settings.automation.attributes'] (view-only attributes key + menu-structural ancestors; holds NO settings.automation.attributes.delete); userLeadsView id=24 (leads.view); userProdView id=25 (products.view); all view_permission=global",
+6:         "admin-created fixtures: 3 user-defined attributes (ids=[73,74,75]) each with 1 attribute_values row (counts before={\"73\":1,\"74\":1,\"75\":1})",
+7:         "walk(isAuthorizedByFeature): admin.settings.attributes.mass_delete as l2fix.view@example.com => true (expected true)",
+8:         "walk(isAuthorizedByFeature): admin.settings.attributes.delete as l2fix.view@example.com => true (expected true)",
+9:         "walk(isAuthorizedByFeature): admin.leads.attributes.update as l2fix.leads@example.com => true (expected true)",
+10:         "walk(isAuthorizedByFeature): admin.leads.quotes.delete as l2fix.leads@example.com => false (expected false)",
+11:         "walk(isAuthorizedByFeature): admin.leads.emails.store as l2fix.leads@example.com => true (expected true)",
+12:         "walk(isAuthorizedByFeature): admin.products.inventories.store as l2fix.prod@example.com => true (expected true)",
+13:         "walk(isAuthorizedByFeature): admin.products.search as l2fix.prod@example.com => true (expected true)",
+14:         "walk(isAuthorizedByFeature): admin.settings.locations.store as l2fix.view@example.com => true (expected true)",
+15:         "walk(isAuthorizedByFeature): admin.settings.warehouse.activities.index as l2fix.view@example.com => true (expected true)",
+16:         "view-only user GET /admin/settings/attributes (exact-mapped to settings.automation.attributes) => HTTP 200 (allowed)",
+17:         "view-only user GET /admin/settings/users (different feature) => HTTP 401 (role restriction enforced elsewhere)",
+18:         "attack: view-only user POST /admin/settings/attributes/mass-destroy (route admin.settings.attributes.mass_delete, unmapped in acl.php) with indices=[73,74] => HTTP 200 {\"message\":\"Attribute deleted successfully.\"}; attributes rows for indices before=3 after=1; attribute_values rows for attr 73: 1 -> 0, attr 74: 1 -> 0, untouched attr 75 value rows still=1",
+19:         "information_schema: attribute_values FK(s) with DELETE_RULE=CASCADE = 1 (cascade storage-value destruction enforced by DB)",
+20:         "control: same view-only user DELETE /admin/settings/attributes/75 (exact-mapped to settings.automation.attributes.delete) => HTTP 401, attribute still present rows=1 (mapped delete key properly required)"
+21:     ],
+22:     "errors": [],
+23:     "proposed_verdict": "confirmed",
+24:     "proposed_severity": "critical",
+25:     "observed_result_for_record": "On the local Docker install, a staff user whose custom role holds only the view-only ACL key settings.automation.attributes (plus dashboard) was authorized for POST /admin/settings/attributes/mass-destroy (route name admin.settings.attributes.mass_delete, absent from acl.php) via the Bouncer dotted-ancestor walk, which returned HTTP 200 and hard-deleted 2 of 3 admin-created user-defined attribute definitions; the attribute_values FK (DELETE_RULE=CASCADE confirmed via information_schema) removed all stored values of the deleted attributes (counts 1 -> 0 per deleted attribute) while the untouched attribute kept its values. The identical session received HTTP 401 for the exact-mapped single-delete route DELETE /admin/settings/attributes/<id> (requires settings.automation.attributes.delete) and HTTP 200 for the attributes index (exact view key) — proving the walk grants the unmapped destructive route to a view-only principal that the mapped equivalent refuses. Reflection-level checks of Bouncer::isAuthorizedByFeature additionally confirmed: leads.view holder granted admin.leads.attributes.update / admin.leads.emails.store, products.view holder granted admin.products.inventories.store and admin.products.search, leads.view holder DENIED admin.leads.quotes.delete (walk stops at the mapped admin.leads.quotes. prefix, requires quotes.mail), and the view-only attributes holder granted admin.settings.warehouse.activities.index via the two-level walk. All fixture attribute/user/role rows created for the test were deleted afterwards.",
+26:     "notes": "HTTP-level reproduction of the featured path (view-only attributes principal mass-deletes attribute definitions with cascading value destruction); remaining same-mechanism routes verified at the authorization-helper level (deterministic source logic + live role/session state). No compensating layer observed."
+27: }

@@ -1,0 +1,31 @@
+100:                  * made the record's safety depend on which branch happened to handle it.
+101:                  */
+102:                 'reply' => $this->htmlFilter->process($reply, ''),
+103:                 'unique_id' => time().'@'.config('mail.domain'),
+104:                 'reference_ids' => [$headers['message_id']],
+105:                 'user_type' => 'person',
+106:             ]));
+107:
+108:             $this->attachmentRepository->uploadAttachments($email, [
+109:                 'source' => 'email',
+110:                 'attachments' => $this->emailParser->getAttachments(),
+111:             ]);
+112:         } else {
+113:             $email = $this->emailRepository->findThreadRoot($email);
+114:
+115:             $parentEmail = $this->emailRepository->update([
+116:                 'folders' => array_unique(array_merge($email->folders, ['inbox'])),
+117:                 'reference_ids' => array_merge($email->reference_ids ?? [], [$headers['message_id']]),
+118:             ], $email->id);
+119:
+120:             $email = $this->emailRepository->create(array_merge($headers, [
+121:                 'reply' => $this->htmlFilter->process($reply, ''),
+122:                 'parent_id' => $parentEmail->id,
+123:                 'user_type' => 'person',
+124:             ]));
+125:
+126:             $this->attachmentRepository->uploadAttachments($email, [
+127:                 'source' => 'email',
+128:                 'attachments' => $this->emailParser->getAttachments(),
+129:             ]);
+130:         }

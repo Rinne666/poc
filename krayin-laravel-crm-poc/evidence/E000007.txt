@@ -1,0 +1,26 @@
+240:         Route::get('lookup/{lookup?}', 'lookup')->name('admin.settings.attributes.lookup');
+241:
+242:         Route::get('lookup-entity/{lookup?}', 'lookupEntity')->name('admin.settings.attributes.lookup_entity');
+243:
+244:         Route::delete('{id}', 'destroy')->name('admin.settings.attributes.delete');
+245:
+246:         Route::get('{id}/options', 'getAttributeOptions')->name('admin.settings.attributes.options');
+247:
+248:         Route::post('mass-update', 'massUpdate')->name('admin.settings.attributes.mass_update');
+249:
+250:         Route::post('mass-destroy', 'massDestroy')->name('admin.settings.attributes.mass_delete');
+251:
+252:         Route::get('download', 'download')->name('admin.settings.attributes.download');
+253:     });
+254:
+255:     /**
+256:      * Warehouses Routes.
+257:      */
+258:     Route::controller(WarehouseController::class)->prefix('warehouses')->group(function () {
+259:         Route::put('edit/{id}', 'update')->name('admin.settings.warehouses.update');
+260:
+261:         Route::get('', 'index')->name('admin.settings.warehouses.index');
+262:
+263:         Route::get('search', 'search')->name('admin.settings.warehouses.search');
+264:
+265:         Route::get('{id}/products', 'products')->name('admin.settings.warehouses.products.index');
